@@ -1,4 +1,5 @@
 use crate::ffxiv::asset_exh_file::{AssetEXHFile, AssetEXHFileColumnKind};
+use crate::ffxiv::asset_path::AssetPath;
 use crate::ffxiv::buffer_vec::BufferVec;
 
 pub struct AssetEXDFile {
@@ -63,7 +64,7 @@ impl AssetEXDFile {
             row_metadata_size,
             row_data_size,
             rows_metadata,
-            rows
+            rows,
         }
     }
 }
@@ -140,6 +141,40 @@ impl AssetEXDFileColumnKind {
                 let byte = buffer.u8_at(offset);
                 AssetEXDFileColumnKind::Bool(byte & (1 << 7) == byte)
             },
+        }
+    }
+
+
+    // pub enum AssetEXDFileColumnKind {
+    //     String(String),
+    //     Bool(bool),
+    //     Int8(i8),
+    //     UInt8(u8),
+    //     Int16(i16),
+    //     UInt16(u16),
+    //     Int32(i32),
+    //     UInt32(u32),
+    //     Float32(f32),
+    //     Int64(i64),
+    //     UInt64(u64),
+    //     UNK,
+    // }
+    //
+
+    pub fn to_string(&self) -> String {
+        match &self {
+            AssetEXDFileColumnKind::String(str) => str.to_owned(),
+            AssetEXDFileColumnKind::Bool(bool) => bool.to_string(),
+            AssetEXDFileColumnKind::Int8(i) => i.to_string(),
+            AssetEXDFileColumnKind::UInt8(i) => i.to_string(),
+            AssetEXDFileColumnKind::Int16(i) => i.to_string(),
+            AssetEXDFileColumnKind::UInt16(i) => i.to_string(),
+            AssetEXDFileColumnKind::Int32(i) => i.to_string(),
+            AssetEXDFileColumnKind::UInt32(i) => i.to_string(),
+            AssetEXDFileColumnKind::Float32(i) => i.to_string(),
+            AssetEXDFileColumnKind::Int64(i) => i.to_string(),
+            AssetEXDFileColumnKind::UInt64(i) => i.to_string(),
+            AssetEXDFileColumnKind::UNK => String::from("UNKNOWN")
         }
     }
 }

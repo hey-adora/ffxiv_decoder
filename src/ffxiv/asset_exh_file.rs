@@ -1,5 +1,8 @@
 use std::ffi::c_ushort;
+use imgui::TreeNodeId::Str;
 use imgui_winit_support::winit::platform::unix::x11::ffi::Bool;
+use crate::ffxiv::asset_exd_file::AssetEXDFile;
+use crate::ffxiv::asset_path::AssetPath;
 use crate::ffxiv::buffer_vec::BufferVec;
 
 pub struct AssetEXHFile {
@@ -89,6 +92,36 @@ impl AssetEXHFileColumnKind {
             AssetEXHFileColumnKind::PackedBool7 => 1,
         }
     }
+
+    pub fn names(kind: &AssetEXHFileColumnKind) -> String {
+        match kind {
+            AssetEXHFileColumnKind::String => String::from("STRING"),
+            AssetEXHFileColumnKind::Bool => String::from("BOOL"),
+            AssetEXHFileColumnKind::Int8 => String::from("INT8"),
+            AssetEXHFileColumnKind::UInt8 => String::from("UINT8"),
+            AssetEXHFileColumnKind::Int16 => String::from("INT16"),
+            AssetEXHFileColumnKind::UInt16 => String::from("UINT16"),
+            AssetEXHFileColumnKind::Int32 => String::from("INT32"),
+            AssetEXHFileColumnKind::UInt32 => String::from("UINT32"),
+            AssetEXHFileColumnKind::UNK1 => String::from("UNKNOWN"),
+            AssetEXHFileColumnKind::Float32 => String::from("FLOAT32"),
+            AssetEXHFileColumnKind::Int64 => String::from("INT64"),
+            AssetEXHFileColumnKind::UInt64 => String::from("UINT64"),
+            AssetEXHFileColumnKind::UNK2 => String::from("UNKNOWN"),
+            AssetEXHFileColumnKind::PackedBool0 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool1 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool2 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool3 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool4 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool5 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool6 => String::from("BOOL"),
+            AssetEXHFileColumnKind::PackedBool7 => String::from("BOOL"),
+        }
+    }
+
+    pub fn name(&self) -> String {
+        AssetEXHFileColumnKind::names(&self)
+    }
 }
 
 
@@ -130,7 +163,7 @@ impl AssetEXHFile {
             row_count,
             columns,
             rows,
-            languages
+            languages,
         }
     }
 }

@@ -1,5 +1,6 @@
-use std::{path::Path};
+use std::{fs, path::Path};
 use std::os::raw::c_char;
+use std::thread::scope;
 use std::time::Instant;
 use glium::{Display, Surface};
 use game_data_resolver::ffxiv::FFXIV;
@@ -10,13 +11,26 @@ use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use imgui::sys::{igGetCurrentWindow, ImGuiDockNodeFlags};
 use eframe::{egui, Frame};
-
+use game_data_resolver::ffxiv::asset_exh_file::AssetEXHFileColumnKind;
 
 
 fn main() {
     let ffxiv = FFXIV::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
     let exh = ffxiv.get_asset_from_path("exd/action.exh").unwrap().to_exh();
     let exd =  ffxiv.get_asset_from_path("exd/action_0_en.exd").unwrap().to_exd(&exh);
+    for i in 0..exh.page_count {
+        let mut rows: String = exh.columns.iter().map(|c|AssetEXHFileColumnKind::names(&c.kind)).collect::<Vec<String>>().join(" ");
+        rows.push_str("\n\n");
+
+
+        for row in &exd.rows {
+            let row: String = row.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(", ");
+            rows.push('\n');
+            rows.push_str(&row)
+        }
+
+        fs::write(format!("./action_{}_en.csv", i), rows).unwrap();
+    }
     println!("test");
     // env_logger::init();
     // let options = eframe::NativeOptions {

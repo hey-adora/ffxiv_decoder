@@ -4,9 +4,10 @@ use std::path::{Path, PathBuf};
 use crate::ffxiv::buffer_file::BufferFile;
 use flate2::{Decompress, FlushDecompress};
 use crate::ffxiv::asset_exd_file::AssetEXDFile;
-use crate::ffxiv::asset_exh_file::AssetEXHFile;
+use crate::ffxiv::asset_exh_file::{AssetEXHFile, AssetEXHFileLanguage};
 use crate::ffxiv::asset_file_path::AssetFilePath;
 use crate::ffxiv::asset_files::FFXIVAssetFiles;
+use crate::ffxiv::asset_path::AssetPath;
 use crate::ffxiv::asset_scd_file::AssetSCDFile;
 use crate::ffxiv::buffer_vec::BufferVec;
 
@@ -65,7 +66,7 @@ impl AssetDatFile {
 
         AssetDatFile {
             header,
-            raw_data_blocks,
+            raw_data_blocks
         }
     }
 
@@ -90,6 +91,7 @@ impl AssetDatFile {
     }
 
     pub fn to_exh(&self) -> AssetEXHFile {
+
         let data: Vec<u8> = self.to_decompressed().concat();
         let mut data_buf = BufferVec::new(data);
         AssetEXHFile::new(&mut data_buf)
@@ -100,6 +102,11 @@ impl AssetDatFile {
         let mut data_buf = BufferVec::new(data);
         AssetEXDFile::new(&mut data_buf, exh)
     }
+
+    // pub fn get_exh_page(&self, page: usize, lang: AssetEXHFileLanguage) {
+    //     let exh = ;
+    //     AssetEXDFile::new()
+    // }
 
     pub fn save_raw(&self, path: &str) {
         let path_buf = PathBuf::from(path);

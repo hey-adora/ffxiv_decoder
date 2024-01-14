@@ -1,5 +1,7 @@
 use std::fs;
 use crate::ffxiv::asset_dat_file::AssetDatFile;
+use crate::ffxiv::asset_exd_file::AssetEXDFile;
+use crate::ffxiv::asset_exh_file::AssetEXHFileLanguage;
 use crate::ffxiv::asset_files::FFXIVAssetFiles;
 use crate::ffxiv::asset_index_file::AssetIndexFile;
 use crate::ffxiv::asset_path::AssetPath;
@@ -66,4 +68,8 @@ impl FFXIV {
 
         possible_asset_files
     }
+
+
+
+
 }
