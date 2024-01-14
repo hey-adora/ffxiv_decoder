@@ -1,5 +1,5 @@
 [package]
-name = "sqex_scd_file_parser"
+name = "game_data_resolver"
 version = "0.1.0"
 edition = "2021"
 

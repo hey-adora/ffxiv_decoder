@@ -4,15 +4,15 @@ use std::io::{BufReader, Read};
 
 #[derive(Clone)]
 pub struct Buffer {
-    bytes: Vec<u8>,
-    read_history: HashMap<usize, usize>
+    pub bytes: Vec<u8>,
+    pub read_history: HashMap<usize, usize>,
 }
 
 impl Buffer {
     pub fn new(bytes: Vec<u8>) -> Buffer {
         Buffer {
             bytes,
-            read_history: HashMap::new()
+            read_history: HashMap::new(),
         }
     }
 
@@ -23,7 +23,7 @@ impl Buffer {
         reader.read_to_end(&mut bytes).expect("Failed to read file.");
         Buffer {
             bytes,
-            read_history: HashMap::new()
+            read_history: HashMap::new(),
         }
     }
 
