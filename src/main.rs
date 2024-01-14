@@ -10,12 +10,12 @@ fn main() {
         FFXIV::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
     //let paths = FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt");
     //ffxiv.export_all_csv("/home/night/Documents/GitHub/sqex_scd_file_parser/media/csv").unwrap();
-    FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
-        .unwrap();
-    // ffxiv.export_all(
-    //     "/home/night/Documents/aaaaaaaaaaa2",
-    //     "/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt",
-    // );
+    //FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
+    //   .unwrap();
+    ffxiv.export_all(
+        "/home/night/Documents/aaaaaaaaaaa2",
+        "/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt",
+    );
 
     // let exh = ffxiv.get_asset("exd/custom/000/regseaarmguild_00056.exh").unwrap().decompress().unwrap();
     // let exd = ffxiv.get_asset("exd/custom/000/regseaarmguild_00056_0_en.exd").unwrap().decompress().unwrap();

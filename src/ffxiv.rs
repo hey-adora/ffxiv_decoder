@@ -8,7 +8,7 @@ use crate::ffxiv::asset::index::{Index, Index1Data1Item};
 use crate::ffxiv::asset::{Asset, AssetEXHGetPageError, AssetNewError};
 use crate::ffxiv::buffer::Buffer;
 use crate::ffxiv::path::{DatPath, FilePath, PathError};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -269,8 +269,18 @@ impl FFXIV {
         let names = FFXIV::get_paths(path_names)?;
 
         let i_max: usize = dats_hash.iter().fold(0, |a, b| a + b.1.len());
-        let bar = ProgressBar::new(i_max as u64);
-        dats_hash.iter().for_each(|(dat, items)| {
+        //let bar = ProgressBar::new(i_max as u64);
+        // let style = ("Parsing dat paths:", "█  ", "white");
+        // bar.set_style(
+        //     ProgressStyle::with_template(&format!("{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}", style.2))
+        //         .unwrap()
+        //         .progress_chars(style.1),
+        // );
+        // bar.set_prefix(style.0);
+        let bar = MultiProgress::new();
+
+        dats_hash.par_iter().for_each(|(dat, items)| {
+            let bar = bar.add(ProgressBar::new(items.len() as u64));
             let mut buffer = Buffer::from_file_path(dat);
             for (index, item) in items.iter().enumerate() {
                 let org_name = names.get(&item.hash);
