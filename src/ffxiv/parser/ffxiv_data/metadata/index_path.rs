@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 use crc::{Crc, CRC_32_JAMCRC, Digest};
 use egui::TextBuffer;
-use crate::parser::ffxiv::{Category, Platform, Repository};
+use crate::ffxiv::parser::ffxiv_data::metadata::category::Category;
+use crate::ffxiv::parser::ffxiv_data::metadata::platform::Platform;
+use crate::ffxiv::parser::ffxiv_data::metadata::repository::Repository;
 
 #[derive(Debug)]
 pub struct IndexPath {
@@ -16,14 +18,13 @@ pub struct IndexPath {
 }
 
 impl IndexPath {
-    pub fn new(full_path: &str) -> Result<IndexPath, String> {
-        let path = Path::new(full_path);
+    pub fn new(path: PathBuf) -> Result<IndexPath, String> {
+        let full_path = path.as_os_str().to_str().ok_or("Failed to convert path to str.")?;
         let data_name = path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
-        let data_path = path.as_os_str().to_str().ok_or("Failed to get full path as str.")?;
         let data_stem = path.file_stem().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let data_extension = path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;
-
         let components: Vec<Option<&str>> = path.components().map(|c| c.as_os_str().to_str()).collect();
+
         let data_category = Category::from_str(components.get(0).ok_or("Failed to get category name.")?.ok_or("Failed to get category name as str.")?)?;
         let data_repo = Repository::from_str(components.get(1).ok_or("Failed to get repository name.")?.ok_or("Failed to get repository name as str.")?);
         let data_folder = path.parent().ok_or("Failed to get parent dir.")?.to_str().ok_or("Failed to convert parent dir to str.")?;

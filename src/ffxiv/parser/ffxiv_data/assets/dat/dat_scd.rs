@@ -1,4 +1,38 @@
-use crate::reader::Buffer;
+// use std::fs::File;
+// use crate::reader::Buffer;
+//
+// struct DatScd {
+//     metadata_size: u32,
+//     header_size: u32,
+//     header_version: u32,
+//     header_compressed_data_size: u32,
+//     header_uncompressed_data_size: u32,
+//     data_compressed: Vec<u8>,
+//     data_uncompressed: Vec<u8>,
+// }
+//
+// impl DatScd {
+//
+//     pub fn from_file(data_file_offset: usize) {
+//         // let file = File::open()
+//         // let buffer: Buffer = Buffer::new();
+//         //
+//         // let metadata_size: u32 = buffer.u32(0x00);
+//         //
+//         // let offset = metadata_size as usize;
+//
+//         // let header_size: u32 = buffer.u32(offset);
+//         // let header_version: u32 = buffer.u32(offset + 0x04);
+//         // let header_compressed_data_size: u32 = buffer.u32(offset + 0x08);
+//         // let header_uncompressed_data_size: u32 = buffer.u32(offset + 0x0C);
+//         //
+//
+//     }
+//
+// }
+
+
+use crate::ffxiv::reader::buffer::Buffer;
 
 #[derive(Clone, Debug)]
 struct HexValue<T> {
@@ -10,7 +44,7 @@ struct HexValue<T> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Metadata {
+pub struct SCD {
     pub signature: String,
     pub version: i16,
     pub big_endian: u8,
@@ -38,8 +72,8 @@ pub struct Metadata {
     pub audio_offset: u32,
 }
 
-impl Metadata {
-    pub fn new(buffer: &mut Buffer) -> Metadata {
+impl SCD {
+    pub fn new(buffer: &mut Buffer) -> SCD {
         let signature = buffer.string(0x00, 0x08);
         let version = buffer.i16(0x08);
         let big_endian = buffer.u8(0x0c);
@@ -70,7 +104,7 @@ impl Metadata {
 
         let audio_offset = entry_offset + (entry_extra_data_size as u32) + 0x20;
 
-        Metadata {
+        SCD {
             signature,
             version,
             big_endian,

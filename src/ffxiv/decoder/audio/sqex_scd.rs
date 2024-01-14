@@ -1,5 +1,5 @@
-use crate::reader::Buffer;
-use crate::parser::audio::sqex_scd::Metadata;
+use crate::ffxiv::parser::ffxiv_data::assets::dat::dat_scd::SCD;
+use crate::ffxiv::reader::buffer::Buffer;
 
 const NIBBLE_TO_INT: [i16; 16] = [0, 1, 2, 3, 4, 5, 6, 7, -8, -7, -6, -5, -4, -3, -2, -1];
 const MSADPCM_STEPS: [i16; 16] = [
@@ -119,7 +119,7 @@ fn decode_mono_block(block: &[u8]) -> Vec<u8> {
     temp_buffer
 }
 
-pub fn decode(metadata: &Metadata, buffer: &mut Buffer) -> Vec<u8> {
+pub fn decode(metadata: &SCD, buffer: &mut Buffer) -> Vec<u8> {
     let offset: usize = metadata.audio_offset as usize;
     let frame_size: usize = metadata.entry_frame_size as usize;
     let mut output_buffer: Vec<u8> = Vec::new();

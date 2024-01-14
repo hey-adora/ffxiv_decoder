@@ -1,7 +1,8 @@
 pub mod buffer;
 
 use std::collections::HashMap;
-use crate::reader::Buffer;
+use crate::ffxiv::reader::buffer::Buffer;
+
 
 static COLUMN_COUNT: usize = 16;
 
