@@ -1,7 +1,7 @@
 use regex::Regex;
 
 pub mod dat;
-pub mod index1;
+pub mod index;
 pub mod index_path;
 
 // PLATFORM

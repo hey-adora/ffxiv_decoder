@@ -1,9 +1,13 @@
 use std::path::{Path, PathBuf};
 use crc::{Crc, CRC_32_JAMCRC, Digest};
+use egui::TextBuffer;
 use crate::parser::ffxiv::{Category, Platform, Repository};
 
 #[derive(Debug)]
 pub struct IndexPath {
+    pub full_path: String,
+    pub file_extension: String,
+    pub file_stem: String,
     pub index1_hash: u64,
     pub index2_hash: u32,
     pub data_repo: Repository,
@@ -22,21 +26,26 @@ impl IndexPath {
         let components: Vec<Option<&str>> = path.components().map(|c| c.as_os_str().to_str()).collect();
         let data_category = Category::from_str(components.get(0).ok_or("Failed to get category name.")?.ok_or("Failed to get category name as str.")?)?;
         let data_repo = Repository::from_str(components.get(1).ok_or("Failed to get repository name.")?.ok_or("Failed to get repository name as str.")?);
+        let data_folder = path.parent().ok_or("Failed to get parent dir.")?.to_str().ok_or("Failed to convert parent dir to str.")?;
 
+        let data_folder = IndexPath::hash(data_folder);
         let data_category_hash = IndexPath::hash(data_category.name.as_str());
         let data_name_hash = IndexPath::hash(data_name);
-        let index1_hash = IndexPath::double_hash(data_category_hash, data_name_hash);
+        let index1_hash = IndexPath::double_hash(data_folder, data_name_hash);
         let index2_hash = IndexPath::hash(full_path);
 
         let platform = Platform::from_number(0)?;
 
         Ok(
             IndexPath {
+                full_path: String::from(full_path),
+                file_extension: String::from(data_extension),
+                file_stem: String::from(data_stem),
                 index1_hash,
                 index2_hash,
                 data_repo,
                 data_category,
-                platform
+                platform,
             }
         )
     }

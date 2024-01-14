@@ -5,8 +5,10 @@ use game_data_resolver::parser;
 use game_data_resolver::decoder;
 use game_data_resolver::parser::ffxiv;
 use std::f32::consts::PI;
-use std::{fs, i16};
-use std::io::Read;
+use std::{fs, i16, str, string};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufWriter, Read, stdout};
 use std::path::{Path, PathBuf};
 use hound;
 use crc32fast::Hasher;
@@ -22,27 +24,28 @@ use iced::{Alignment, Element, Font, Length, Sandbox, Settings, window, Applicat
 use once_cell::sync::Lazy;
 use iced::widget::pane_grid::Axis::{Horizontal, Vertical};
 use iced::window::{PlatformSpecific, Position};
-use game_data_resolver::parser::ffxiv::index1::{Index1, IndexData1};
+use game_data_resolver::parser::ffxiv::index::{Index, Index1Data1, Index2Data1};
 use game_data_resolver::parser::ffxiv::index_path::IndexPath;
 use egui;
 use eframe;
-use egui::{Color32, FontSelection, ScrollArea, TextEdit, Ui, Widget};
+use egui::{Align2, Color32, FontSelection, pos2, ScrollArea, Sense, TextEdit, TextStyle, Ui, Widget};
+use std::collections::HashSet;
 use egui_extras::{Size, StripBuilder};
 use env_logger;
 
 
 static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
 static FILE_PATH: &str = "./2.scd";
-
-enum Group {
-    Index,
-    Data,
-}
-
-struct File {
-    group: Group,
-    path: PathBuf,
-}
+//
+// enum Group {
+//     Index,
+//     Data,
+// }
+//
+// struct File {
+//     group: Group,
+//     path: PathBuf,
+// }
 
 fn get_file_paths(input_path: &str, output: &mut Vec<PathBuf>) {
     let verify = Path::new(input_path);
@@ -68,194 +71,410 @@ fn get_file_paths(input_path: &str, output: &mut Vec<PathBuf>) {
     }
 }
 
-fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1280.0, 720.0)),
-        ..Default::default()
-    };
-
+fn main() {
     let game_path = "/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/";
     let mut file_paths: Vec<PathBuf> = Vec::new();
     get_file_paths(game_path, &mut file_paths);
 
-    let mut multi_text = String::from("");
-    let mut search_text = String::from("");
-
-    let mut data1_list: Vec<IndexData1> = Vec::new();
+    let mut index1_data1_list: HashMap<u64, Index1Data1> = HashMap::new();
+    let mut index2_data1_list: Vec<Index2Data1> = Vec::new();
 
     for file_path in file_paths.clone() {
         let extension = file_path.extension().unwrap();
         if extension == "index" {
-            let index_file = fs::read(file_path).unwrap();
+            let index_file = fs::read(&file_path).unwrap();
             let mut index_file_buffer = Buffer::new(index_file);
-            let index = Index1::new(&mut index_file_buffer);
-            multi_text = String::new();
+            let index = Index::from_index1(&mut index_file_buffer);
             for data in index.data1 {
-                data1_list.push(data);
+                index1_data1_list.insert(data.hash, data);
+            }
+        } else if extension == "index2" {
+            let index_file = fs::read(&file_path).unwrap();
+            let mut index_file_buffer = Buffer::new(index_file);
+            let index = Index::from_index2(&mut index_file_buffer);
+            for data in index.data1 {
+                index2_data1_list.push(data);
             }
         }
     }
 
-    // for i in 0..100000 {
-    //     multi_text.push_str("0123456789\n");
-    // }
+    combine_paths();
 
-    // for file_path in file_paths {
-    //     let path = file_path.to_str().unwrap();
-    //     multi_text.push_str(&format!("{}\n", path));
-    // }
+    let paths = file_to_lines_hashset("./all_paths.txt");
+    let mut parsed_paths: HashMap<u64, IndexPath> = HashMap::new();
 
-    eframe::run_simple_native("No UwU", options, move |ctx, _frame| {
-        egui::CentralPanel::default().show(ctx, |ui: &mut Ui| {
-            StripBuilder::new(ui)
-                .size(Size::exact(20.0))
-                //.size(Size::remainder())
-                .size(Size::relative(1.0))
-                //.size(Size::exact(10.0))
-                .vertical(|mut strip| {
-                    strip.strip(|builder| {
-                        builder.size(Size::remainder()).size(Size::exact(50.0)).horizontal(|mut strip| {
-                            strip.cell(|ui| {
-                                ui.add(TextEdit::singleline(&mut search_text).desired_width(f32::INFINITY));
-                            });
-                            strip.cell(|ui| {
-                                if ui.button("Search").clicked() {
-                                    let index_path = IndexPath::new(&search_text);
-                                    if let Ok(path) = index_path {
-                                        multi_text = format!("{:#?}", path);
-                                        for data1 in &data1_list {
-                                            if data1.hash == path.index1_hash {
-                                                multi_text.push_str(&format!("\n{}", data1.hash));
-                                            }
-                                        }
-                                    } else if let Err(error) = index_path {
-                                        multi_text = error;
-                                    }
-                                }
-                            });
-                        });
-                    });
-                    strip.strip(|builder| {
-                        builder.size(Size::exact(200.0)).size(Size::remainder()).horizontal(|mut strip| {
-                            strip.cell(|ui| {
-                                //ui.text_edit_multiline(&mut multi_text);
-                                // ui.painter().rect_filled(
-                                //     ui.available_rect_before_wrap(),
-                                //     0.0,
-                                //     Color32::BLUE,
-                                // );
+    // let stdout = stdout();
+    // let lock = stdout.lock();
+    // let mut buf_writer = BufWriter::new(lock);
 
 
-                                ScrollArea::vertical().auto_shrink([false; 2]).show_viewport(ui, |ui, viewport| {
-                                    for file_path in &file_paths {
-                                        let extension = file_path.extension().unwrap();
-                                        if extension == "index" {
-                                            let stem = file_path.file_stem().unwrap().to_str().unwrap();
-                                            if ui.button(stem).clicked() {
-                                                let index_file = fs::read(file_path).unwrap();
-                                                let mut index_file_buffer = Buffer::new(index_file);
-                                                let index = Index1::new(&mut index_file_buffer);
-                                                multi_text = String::new();
-                                                for data in index.data1 {
-                                                    multi_text.push_str(&format!("{}\n", data.hash));
-                                                }
-                                            };
-                                        }
-                                    }
-                                    // let font_id = FontSelection::Default.resolve(ui.style());
-                                    // let row_height = ui.fonts(|f| f.row_height(&font_id));
-                                    // let height = (ui.available_height() / row_height).floor();
-                                    // let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_rows(height as usize).desired_width(f32::INFINITY).font(FontSelection::Default);
-                                    // ui.add(text_editor);
-                                });
-                            });
-                            strip.cell(|ui| {
-                                ScrollArea::vertical().id_source(511).auto_shrink([false; 2]).show_viewport(ui, |ui, viewport| {
-                                    // ui.text_edit_multiline(&mut multi_text);
-                                    // ui.painter().rect_filled(
-                                    //     ui.available_rect_before_wrap(),
-                                    //     0.0,
-                                    //     Color32::BLUE,
-                                    // );
-                                    let font_id = FontSelection::Default.resolve(ui.style());
-                                    let row_height = ui.fonts(|f| f.row_height(&font_id));
-                                    let height = (ui.available_height() / row_height).floor();
-                                    let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_rows(height as usize).desired_width(f32::INFINITY).font(FontSelection::Default);
-                                    ui.add(text_editor);
-                                });
+    let max_index = paths.len() as f32;
+    let mut error_log = File::create("error_log.txt").unwrap();
+    for (index, path) in paths.iter().enumerate() {
+        let parsed_path = IndexPath::new(&path);
+        if let Ok(path) = parsed_path {
+            // if path.file_extension == "scd" {
+            //     println!("{}", {&path.full_path});
+            // }
+            parsed_paths.insert(path.index1_hash, path);
+        } else if let Err(e) = parsed_path {
+            error_log.write(format!("{} - {}\n", path, e).as_bytes()).unwrap();
+        }
+        if index % 10000 == 0 {
+            let done: f32 = (index as f32 / max_index) * 100.0;
+            println!("Parsing path: {}%.\n", done);
+        }
+    }
 
+    let mut output = String::new();
+    let max_index = index1_data1_list.len() as f32;
+    for (index, (hash, indexdata)) in index1_data1_list.iter().enumerate() {
+        let parsed_path = parsed_paths.get(&hash);
+        if let Some(path) = parsed_path {
+            if path.file_extension == "scd" {
+                println!("{}", {&path.full_path});
+            }
+            let line = format!("{} {}\n", path.index1_hash, path.full_path);
+            output.push_str(&line);
+        } else {
+            let line = format!("{}\n", hash);
+            output.push_str(&line)
+        }
+        if index % 10000 == 0 {
+            let done: f32 = (index as f32 / max_index) * 100.0;
+            println!("Writing path: {}%.\n", done);
+        }
+    }
 
-                                // ScrollArea::vertical().auto_shrink([false; 2]).show_viewport(ui, |ui, viewport| {
-                                //     let font_id = FontSelection::Default.resolve(ui.style());
-                                //     let row_height = ui.fonts(|f| f.row_height(&font_id));
-                                //     let height = (ui.available_height() / row_height).floor();
-                                //     let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_rows(height as usize).desired_width(f32::INFINITY).font(FontSelection::Default);
-                                //     ui.add(text_editor);
-                                // });
-                                //
-                            });
-                        });
-                    });
-                });
-            // ScrollArea::vertical().auto_shrink([true; 2]).show_viewport(ui, |ui, viewport| {
-            //     // ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO").desired_width(f32::INFINITY));
-            //     // ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO").desired_width(f32::INFINITY));
-            //     // ui.horizontal(|ui| {
-            //     //     ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO"));
-            //     //     ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO"));
-            //     // });
-            //     //let faded_color = ui
-            //     StripBuilder::new(ui)
-            //         //.size(Size::exact(50.0))
-            //         //.size(Size::remainder())
-            //         .size(Size::relative(1.0))
-            //         //.size(Size::exact(10.0))
-            //         .vertical(|mut strip| {
-            //             strip.cell(|ui| {
-            //                 ui.text_edit_multiline(&mut multi_text);
-            //                 // ui.painter().rect_filled(
-            //                 //     ui.available_rect_before_wrap(),
-            //                 //     0.0,
-            //                 //     Color32::BLUE,
-            //                 // );
-            //
-            //                 //ui.add(TextEdit::multiline(&mut multi_text).desired_rows().hint_text("NO").desired_width(f32::INFINITY));
-            //             })
-            //         });
-            // });
-        });
-    })
-    // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    //
-    // let options = eframe::NativeOptions {
-    //     initial_window_size: Some(egui::vec2(320.0, 240.0)),
-    //     ..Default::default()
-    // };
-    //
-    // // Our application state:
-    // let mut name = "Arthur".to_owned();
-    // let mut text = "".to_owned();
-    // let mut age = 42;
-    //
-    // eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
-    //     egui::CentralPanel::default().show(ctx, |ui: &mut Ui| {
-    //         let te = egui::TextEdit::multiline(&mut text).hint_text("NO");
-    //         ui.add(te);
-    //         ui.text_edit_multiline(&mut text).
-    //         ui.button("boom");
-    //         ui.horizontal(|ui| {
-    //             let name_label = ui.label("Your name: ");
-    //             ui.text_edit_singleline(&mut name)
-    //                 .labelled_by(name_label.id);
-    //         });
-    //         ui.add(egui::Slider::new(&mut age, 0..=120).text("age"));
-    //         if ui.button("Click each year").clicked() {
-    //             age += 1;
-    //         }
-    //         ui.label(format!("Hello '{name}', age {age}"));
-    //     });
-    // })
+    fs::write("has.txt", output).unwrap();
 }
+
+fn combine_paths() {
+    let mut paths: HashSet<String> = HashSet::with_capacity(3000000);
+    add_paths2("./CurrentPathList", &mut paths);
+    add_paths2("./PathList", &mut paths);
+    let mut file = File::create("all_paths.txt").unwrap();
+    for path in paths {
+        file.write(path.as_bytes());
+    }
+}
+
+fn file_to_lines_vec(file_name: &str) -> Vec<String> {
+    let mut paths: Vec<String> = Vec::new();
+
+    let file = fs::read(file_name).unwrap();
+
+    let mut previous_index = 0;
+    for (index, byte) in (&file).iter().enumerate() {
+        if *byte == b'\n' && index > (previous_index + 1) {
+            let path_slice = &file[previous_index..index];
+            let path = String::from_utf8(path_slice.to_owned()).unwrap();
+            paths.push(path);
+            previous_index = index + 1;
+        }
+    }
+
+    paths
+}
+
+fn file_to_lines_hashset(file_name: &str) -> HashSet<String> {
+    let mut paths: HashSet<String> = HashSet::new();
+
+    let file = fs::read(file_name).unwrap();
+
+    let mut previous_index = 0;
+    for (index, byte) in (&file).iter().enumerate() {
+        if *byte == b'\n' && index > (previous_index + 1) {
+            let path_slice = &file[previous_index..index];
+            let path = String::from_utf8(path_slice.to_owned()).unwrap();
+            paths.insert(path);
+            previous_index = index + 1;
+        }
+    }
+
+    paths
+}
+
+
+fn add_paths(file_name: &str, paths: &mut Vec<String>) {
+    let paths_file = fs::read(file_name).unwrap();
+    let mut previous_index = 0;
+    for (index, byte) in (&paths_file).iter().enumerate() {
+        if *byte == b'\n' && index > (previous_index + 1) {
+            let path_slice = &paths_file[previous_index..index];
+            let path = String::from_utf8(path_slice.to_owned()).unwrap();
+            let position = paths.iter().position(|p| *p == path);
+            if let None = position {
+                paths.push(path);
+                previous_index = index + 1;
+            }
+        }
+    }
+}
+
+fn add_paths2(file_name: &str, paths: &mut HashSet<String>) {
+    let paths_file = fs::read(file_name).unwrap();
+    let mut previous_index = 0;
+    for (index, byte) in (&paths_file).iter().enumerate() {
+        if *byte == b'\n' && index > previous_index {
+            let path_slice = &paths_file[previous_index..index];
+            let path = String::from_utf8(path_slice.to_owned()).unwrap();
+            paths.insert(path);
+            previous_index = index;
+        }
+    }
+}
+
+
+// fn main() -> Result<(), eframe::Error> {
+//     let options = eframe::NativeOptions {
+//         initial_window_size: Some(egui::vec2(1280.0, 720.0)),
+//         ..Default::default()
+//     };
+//
+//     let game_path = "/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/";
+//     let mut file_paths: Vec<PathBuf> = Vec::new();
+//     get_file_paths(game_path, &mut file_paths);
+//
+//     let mut multi_text = String::from("");
+//     let mut search_text = String::from("");
+//
+//     let mut picked_list1: Vec<Index1Data1> = Vec::new();
+//     let mut picked_list2: Vec<Index2Data1> = Vec::new();
+//
+//     let mut index1_data1_list: Vec<Index1Data1> = Vec::new();
+//     let mut index2_data1_list: Vec<Index2Data1> = Vec::new();
+//
+//     for file_path in file_paths.clone() {
+//         let extension = file_path.extension().unwrap();
+//         if extension == "index" {
+//             let index_file = fs::read(&file_path).unwrap();
+//             let mut index_file_buffer = Buffer::new(index_file);
+//             let index = Index::from_index1(&mut index_file_buffer);
+//             multi_text = String::new();
+//             for data in index.data1 {
+//                 index1_data1_list.push(data);
+//             }
+//         } else if extension == "index2" {
+//             let index_file = fs::read(&file_path).unwrap();
+//             let mut index_file_buffer = Buffer::new(index_file);
+//             let index = Index::from_index2(&mut index_file_buffer);
+//             multi_text = String::new();
+//             for data in index.data1 {
+//                 index2_data1_list.push(data);
+//             }
+//         }
+//     }
+//
+//     // for i in 0..100000 {
+//     //     multi_text.push_str("0123456789\n");
+//     // }
+//
+//     // for file_path in file_paths {
+//     //     let path = file_path.to_str().unwrap();
+//     //     multi_text.push_str(&format!("{}\n", path));
+//     // }
+//
+//     eframe::run_simple_native("No UwU", options, move |ctx, _frame| {
+//         egui::CentralPanel::default().show(ctx, |ui: &mut Ui| {
+//             StripBuilder::new(ui)
+//                 .size(Size::exact(20.0))
+//                 .size(Size::remainder())
+//                 //.size(Size::relative(1.0))
+//                 //.size(Size::exact(10.0))
+//                 .vertical(|mut strip| {
+//                     strip.strip(|builder| {
+//                         builder.size(Size::remainder()).size(Size::exact(50.0)).horizontal(|mut strip| {
+//                             strip.cell(|ui| {
+//                                 ui.add(TextEdit::singleline(&mut search_text).desired_width(f32::INFINITY));
+//                             });
+//                             strip.cell(|ui| {
+//                                 if ui.button("Search").clicked() {
+//                                     let index_path = IndexPath::new(&search_text);
+//                                     if let Ok(path) = index_path {
+//                                         multi_text = format!("{:#?}", path);
+//                                         for data1 in &index1_data1_list {
+//                                             if data1.hash == path.index1_hash {
+//                                                 multi_text.push_str(&format!("\n{}", data1.hash));
+//                                             }
+//                                         }
+//                                         for data1 in &index2_data1_list {
+//                                             if data1.hash == path.index2_hash {
+//                                                 multi_text.push_str(&format!("\n{}", data1.hash));
+//                                             }
+//                                         }
+//                                     } else if let Err(error) = index_path {
+//                                         multi_text = error;
+//                                     }
+//                                 }
+//                             });
+//                         });
+//                     });
+//                     strip.strip(|builder| {
+//                         builder.size(Size::exact(200.0)).size(Size::remainder()).horizontal(|mut strip| {
+//                             strip.cell(|ui| {
+//                                 //ui.text_edit_multiline(&mut multi_text);
+//                                 // ui.painter().rect_filled(
+//                                 //     ui.available_rect_before_wrap(),
+//                                 //     0.0,
+//                                 //     Color32::BLUE,
+//                                 // );
+//
+//
+//                                 ScrollArea::vertical().auto_shrink([false; 2]).show_viewport(ui, |ui, viewport| {
+//                                     for file_path in &file_paths {
+//                                         let extension = file_path.extension().unwrap();
+//                                         if extension == "index" {
+//                                             let stem = file_path.file_name().unwrap().to_str().unwrap();
+//                                             if ui.button(stem).clicked() {
+//                                                 let index_file = fs::read(file_path).unwrap();
+//                                                 let mut index_file_buffer = Buffer::new(index_file);
+//                                                 let index = Index::from_index1(&mut index_file_buffer);
+//                                                 picked_list1 = Vec::new();
+//                                                 //multi_text = String::new();
+//                                                 for data in index.data1 {
+//                                                     picked_list1.push(data);
+//                                                     //multi_text.push_str(&format!("{}\n", data.hash));
+//                                                 }
+//                                             };
+//                                         } else if extension == "index2" {
+//                                             let stem = file_path.file_name().unwrap().to_str().unwrap();
+//                                             if ui.button(stem).clicked() {
+//                                                 let index_file = fs::read(file_path).unwrap();
+//                                                 let mut index_file_buffer = Buffer::new(index_file);
+//                                                 let index = Index::from_index2(&mut index_file_buffer);
+//                                                 picked_list2 = Vec::new();
+//                                                 //multi_text = String::new();
+//                                                 for data in index.data1 {
+//                                                     picked_list2.push(data);
+//                                                     //multi_text.push_str(&format!("{}\n", data.hash));
+//                                                 }
+//                                             };
+//                                         }
+//                                     }
+//                                     // let font_id = FontSelection::Default.resolve(ui.style());
+//                                     // let row_height = ui.fonts(|f| f.row_height(&font_id));
+//                                     // let height = (ui.available_height() / row_height).floor();
+//                                     // let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_rows(height as usize).desired_width(f32::INFINITY).font(FontSelection::Default);
+//                                     // ui.add(text_editor);
+//                                 });
+//                             });
+//                             strip.cell(|ui| {
+//                                 ScrollArea::vertical().id_source(511).auto_shrink([false; 2]).show_viewport(ui, |ui, viewport| {
+//                                     // ui.text_edit_multiline(&mut multi_text);
+//                                     // ui.painter().rect_filled(
+//                                     //     ui.available_rect_before_wrap(),
+//                                     //     0.0,
+//                                     //     Color32::BLUE,
+//                                     // );
+//
+//                                     // let font_id = FontSelection::Default.resolve(ui.style());
+//                                     // let row_height = ui.fonts(|f| f.row_height(&font_id));
+//                                     // let height = (ui.available_height() / row_height).floor();
+//                                     // let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_width(f32::INFINITY);
+//                                     // ui.add(text_editor);
+//                                     //
+//
+//                                     // let font_id = FontSelection::Default.resolve(ui.style());
+//                                     // let row_height = ui.fonts(|f| f.row_height(&font_id));
+//                                     // let height = (ui.available_height() / row_height).floor();
+//                                     // let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_rows(height as usize).desired_width(f32::INFINITY).font(FontSelection::Default);
+//                                     // ui.add(text_editor);
+//
+//
+//                                     // let font_id = TextStyle::Body.resolve(ui.style());
+//                                     // let r = ui.min_rect();
+//                                     // let x = r.left();
+//                                     // let y = r.top();
+//                                     // let rect = ui.painter().text(
+//                                     //     pos2(x, y),
+//                                     //     Align2::LEFT_TOP,
+//                                     //     &multi_text,
+//                                     //     font_id,
+//                                     //     ui.visuals().text_color(),
+//                                     // );
+//                                     // ui.allocate_rect(rect, Sense::hover());
+//
+//                                     for data in &picked_list1 {
+//                                         ui.button(data.hash.to_string());
+//                                     }
+//                                     for data in &picked_list2 {
+//                                         ui.button(data.hash.to_string());
+//                                     }
+//                                 });
+//
+//
+//                                 // ScrollArea::vertical().auto_shrink([false; 2]).show_viewport(ui, |ui, viewport| {
+//                                 //     let font_id = FontSelection::Default.resolve(ui.style());
+//                                 //     let row_height = ui.fonts(|f| f.row_height(&font_id));
+//                                 //     let height = (ui.available_height() / row_height).floor();
+//                                 //     let text_editor = TextEdit::multiline(&mut multi_text).hint_text("NO").desired_rows(height as usize).desired_width(f32::INFINITY).font(FontSelection::Default);
+//                                 //     ui.add(text_editor);
+//                                 // });
+//                                 //
+//                             });
+//                         });
+//                     });
+//                 });
+//             // ScrollArea::vertical().auto_shrink([true; 2]).show_viewport(ui, |ui, viewport| {
+//             //     // ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO").desired_width(f32::INFINITY));
+//             //     // ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO").desired_width(f32::INFINITY));
+//             //     // ui.horizontal(|ui| {
+//             //     //     ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO"));
+//             //     //     ui.add(TextEdit::multiline(&mut multi_text).hint_text("NO"));
+//             //     // });
+//             //     //let faded_color = ui
+//             //     StripBuilder::new(ui)
+//             //         //.size(Size::exact(50.0))
+//             //         //.size(Size::remainder())
+//             //         .size(Size::relative(1.0))
+//             //         //.size(Size::exact(10.0))
+//             //         .vertical(|mut strip| {
+//             //             strip.cell(|ui| {
+//             //                 ui.text_edit_multiline(&mut multi_text);
+//             //                 // ui.painter().rect_filled(
+//             //                 //     ui.available_rect_before_wrap(),
+//             //                 //     0.0,
+//             //                 //     Color32::BLUE,
+//             //                 // );
+//             //
+//             //                 //ui.add(TextEdit::multiline(&mut multi_text).desired_rows().hint_text("NO").desired_width(f32::INFINITY));
+//             //             })
+//             //         });
+//             // });
+//         });
+//     })
+//     // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+//     //
+//     // let options = eframe::NativeOptions {
+//     //     initial_window_size: Some(egui::vec2(320.0, 240.0)),
+//     //     ..Default::default()
+//     // };
+//     //
+//     // // Our application state:
+//     // let mut name = "Arthur".to_owned();
+//     // let mut text = "".to_owned();
+//     // let mut age = 42;
+//     //
+//     // eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
+//     //     egui::CentralPanel::default().show(ctx, |ui: &mut Ui| {
+//     //         let te = egui::TextEdit::multiline(&mut text).hint_text("NO");
+//     //         ui.add(te);
+//     //         ui.text_edit_multiline(&mut text).
+//     //         ui.button("boom");
+//     //         ui.horizontal(|ui| {
+//     //             let name_label = ui.label("Your name: ");
+//     //             ui.text_edit_singleline(&mut name)
+//     //                 .labelled_by(name_label.id);
+//     //         });
+//     //         ui.add(egui::Slider::new(&mut age, 0..=120).text("age"));
+//     //         if ui.button("Click each year").clicked() {
+//     //             age += 1;
+//     //         }
+//     //         ui.label(format!("Hello '{name}', age {age}"));
+//     //     });
+//     // })
+// }
 
 // fn main() -> iced::Result {
 //     Counter::run(Settings::from(Settings {
@@ -290,7 +509,7 @@ struct Counter {
     paths: Vec<PathBuf>,
     theme: Theme,
     value: i32,
-    index1data: Vec<IndexData1>,
+    index1data: Vec<Index1Data1>,
 }
 
 #[derive(Debug, Clone)]
@@ -314,13 +533,13 @@ impl Application for Counter {
         let mut file_paths: Vec<PathBuf> = Vec::new();
         get_file_paths(game_path, &mut file_paths);
 
-        let mut index1data: Vec<IndexData1> = Vec::new();
+        let mut index1data: Vec<Index1Data1> = Vec::new();
         for file_path in file_paths.clone() {
             let file_extension = file_path.extension().unwrap().to_str().unwrap();
             if file_extension == "index" {
                 let index_file = fs::read(file_path).unwrap();
                 let mut index_file_buffer = Buffer::new(index_file);
-                let index = Index1::new(&mut index_file_buffer);
+                let index = Index::from_index1(&mut index_file_buffer);
                 for data in index.data1 {
                     index1data.push(data);
                 }
@@ -372,7 +591,7 @@ impl Application for Counter {
                     let file = fs::read(path_str);
                     if let Ok(file) = file {
                         let mut buffer = Buffer::new(file);
-                        let metadata = parser::ffxiv::index1::Index1::new(&mut buffer);
+                        let metadata = parser::ffxiv::index::Index::from_index1(&mut buffer);
                         let mut analizer = String::new();
                         for data in metadata.data1 {
                             analizer.push_str(format!("{}\n", data.hash).as_str())
