@@ -7,12 +7,26 @@ use regex::bytes::Regex as RegByte;
 use regex::Regex as Reg;
 use crate::ffxiv::ffxiv_buffer::{FFXIVBuffer, FFXIVBufferReader};
 
-// pub struct FFXIVAsset {
-//     path: FFXIVAssetPath,
-//     index1: AssetIndexFile<Index1Data1Item>
-// }
+pub struct FFXIVAsset {
+
+}
+
+enum FFXIVAssetType {
+    Raw(Vec<u8>)
+}
 
 
+
+impl FFXIVAsset {
+    pub fn from_dat_file(dat_path: &str) {
+        let dat_path = FFXIVAssetPathDat::from_str(dat_path).unwrap();
+        dat_path
+        let index_file = FFXIVAssetParserIndex::from_index1_file(file_path);
+        FFXIVAssetParserDat::from_dat_file()
+    }
+}
+
+//==================================================================================================
 
 pub struct FFXIVAssetParserDat {
     pub header: FFXIVAssetParserDatHeader,
@@ -29,10 +43,10 @@ impl FFXIVAssetParserDat {
 
     pub fn from_file_path<P: AsRef<Path>>(file_path: P, offset: u64) -> FFXIVAssetParserDat {
         let mut data_file = FFXIVBuffer::from_file_path(file_path);
-        FFXIVAssetParserDat::new(&mut data_file, offset)
+        FFXIVAssetParserDat::from_dat_file(&mut data_file, offset)
     }
 
-    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> FFXIVAssetParserDat {
+    pub fn from_dat_file<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> FFXIVAssetParserDat {
         let header = FFXIVAssetParserDatHeader::new(data_file, data_file_offset);
         let raw_data_blocks = FFXIVAssetParserDatBlock::from_header(data_file, &header, data_file_offset);
 
