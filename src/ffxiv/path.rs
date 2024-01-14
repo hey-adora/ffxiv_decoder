@@ -4,320 +4,133 @@ use std::path::PathBuf;
 use crc::{Crc, CRC_32_JAMCRC};
 use egui::Key::N;
 use regex::bytes::Regex as RegByte;
-use crate::ffxiv::category::{Category, CategoryError};
-use crate::ffxiv::chunk::Chunk;
-use crate::ffxiv::platform::Platform;
-use crate::ffxiv::repository::Repository;
+
 use thiserror::Error;
-
-// macro_rules! path_impl {
-//     ($name: tt, $input_t: ty, $output_t: ty , $val: expr) => {
-//         pub fn $name(&mut self) -> Result<&$output_t, PathError> {
-//             if let None = &self.$name {
-//                 let val: $input_t = $val(self)?;
-//                 self.$name = Some(val.clone());
-//                 if let Some(val) = &self.$name {
-//                     return Ok(val);
-//                 }
-//             } else if let Some(val) = &self.$name {
-//                 return Ok(val);
-//             }
-//             return Err(PathError::Invalid("Failed to set value".to_owned()));
-//         }
-//     }
-// }
-//
-// macro_rules! path_asset_impl {
-//     ($name: tt, $input_t: ty, $output_t: ty, $val: expr) => {
-//         pub fn $name(&mut self) -> Result<&$output_t, PathError> {
-//             if let Some(val) = &self.asset.$name {
-//                 return Ok(val);
-//             } else {
-//                 let val: $input_t = $val(self)?;
-//                 self.asset.$name = Some(val.clone());
-//                 if let Some(val) = &self.asset.$name {
-//                     return Ok(val);
-//                 }
-//                 return Err(PathError::Invalid("Failed to set value".to_owned()));
-//             }
-//         }
-//     }
-// }
-//
-// macro_rules! cache_impl {
-//     ($name: tt, $input_t: ty, $output_t: ty, $val: expr) => {
-//         pub fn $name(&mut self) -> Result<&$output_t, PathError> {
-//             if let Some(val) = &self.asset.$name {
-//                 return Ok(val);
-//             } else {
-//                 let val: $input_t = $val(self)?;
-//                 self.asset.$name = Some(val.clone());
-//                 if let Some(val) = &self.asset.$name {
-//                     return Ok(val);
-//                 }
-//                 return Err(PathError::Invalid("Failed to set value".to_owned()));
-//             }
-//         }
-//     }
-// }
-
-#[derive(Debug, Clone)]
-pub struct AssetPath<T: Default> {
-    pub path: String,
-    buf: Option<PathBuf>,
-    name: Option<String>,
-    name_bytes: Option<Vec<u8>>,
-    stem: Option<String>,
-    extension: Option<String>,
-    asset: T
-}
-
-impl <T: Default> PartialEq  for AssetPath<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.stem == other.stem
-    }
-}
-
-impl <T: Default> AssetPath<T> {
-
-
-
-    pub fn buf(&mut self) -> &PathBuf {
-        if let None = &self.buf {
-            self.buf = Some(PathBuf::new());
-            if let Some(buf) = &self.buf {
-                return buf;
-            }
-        } else if let Some(buf) = &self.buf {
-            return buf;
-        }
-        panic!("Failed to set path buffer");
-    }
-
-    pub fn validate(&mut self) -> Result<(), PathError> {
-        let file_name_regex = RegByte::new(r"^(\d|[a-z]){6}\.(win32|ps3|ps4)\.(dat|index)\d*$").or(Err(PathError::Invalid("Failed to create validation regex".to_owned())))?;
-        file_name_regex.captures(&self.name_bytes()?).ok_or(PathError::Invalid(format!("File name '{}' is invalid.", self.name()?)))?;
-        Ok(())
-    }
-    //
-    // pub fn nnn(&mut self) -> Result<&str, PathError> {
-    //     if let Some(val) = &self.name {
-    //         return Ok(val);
-    //     } else {
-    //     let val: String = String::new();
-    //     self.name = Some(val.clone());
-    //     if let Some(val) = &self.name {
-    //         return Ok(val);
-    //     }
-    //         return Err(PathError::Invalid("Failed to set value".to_owned()));
-    //     }
-    // }
-
-    pub fn name(&mut self) -> Result<&str, PathError> {
-        if let None = &self.name {
-            let ame = self.buf().file_name();
-            let a = self.stem()?;
-            let i = format!("Failed to get file_name from '{}'", a);
-            let val: String =
-                ame.ok_or(PathError::Invalid(i))?.to_str()
-                .ok_or(PathError::Invalid(format!("Failed to_str from '{}' as str", self.path)))?.to_string();
-            self.name = Some(val);
-        }
-        if let Some(val) = &self.name {
-            return Ok(val);
-        }
-        return Err(PathError::Invalid("Failed to set value".to_owned()));
-    }
-
-    pub fn stem(&mut self) -> Result<&str, PathError> {
-        if let None = &self.stem {
-            let val: String = self.buf().file_stem()
-                .ok_or(PathError::Invalid(format!("Failed to get file_stem from '{}'", self.path)))?.to_str()
-                .ok_or(PathError::Invalid(format!("Failed to_str from '{}' as str", self.path)))?.to_string();
-            self.stem = Some(val);
-        }
-        if let Some(val) = &self.stem {
-            return Ok(val);
-        }
-        return Err(PathError::Invalid("Failed to set value".to_owned()));
-    }
-
-    pub fn extension(&mut self) -> Result<&str, PathError> {
-        if let None = &self.extension {
-            let val: String = self.buf().extension()
-                .ok_or(PathError::Invalid(format!("Failed to get file_stem from '{}'", self.path)))?.to_str()
-                .ok_or(PathError::Invalid(format!("Failed to_str from '{}' as str", self.path)))?.to_string();
-            self.extension = Some(val);
-        }
-        if let Some(val) = &self.extension {
-            return Ok(val);
-        }
-        return Err(PathError::Invalid("Failed to set value".to_owned()));
-    }
-
-    pub fn name_bytes(&mut self) -> Result<&[u8], PathError> {
-        if let None = &self.name_bytes {
-            let val: Vec<u8> = self.name()?.as_bytes().to_owned();
-            self.name_bytes = Some(val);
-        }
-        if let Some(val) = &self.name_bytes {
-            return Ok(val);
-        }
-        return Err(PathError::Invalid("Failed to set value".to_owned()));
-    }
-}
-
-//==================================================================================================
-
-#[derive(Debug, Clone)]
-pub struct IndexPath {
-    category: Option<Category>,
-    repository: Option<Repository>,
-    chunk: Option<Chunk>,
-    platform: Option<Platform>,
-}
-
-impl AssetPath<IndexPath> {
-    pub fn new(path: String) -> AssetPath<IndexPath> {
-        AssetPath {
-            path,
-            buf: None,
-            name: None,
-            name_bytes: None,
-            stem: None,
-            extension: None,
-            asset: IndexPath::default()
-        }
-    }
-
-    // path_asset_impl!(category, Category, Category, |s: &mut AssetPath<IndexPath>| -> Result<Category, PathError> {
-    //     let str = String::from_utf8(s.name_bytes()?[0..2].to_owned()).or(Err(PathError::Invalid(format!("Failed to get category from '{}'", s.path))))?;
-    //     let val = Category::from_hex_str(&str).or_else(|e| Err(PathError::Invalid(e.to_string())))?;
-    //     Ok(val)
-    // });
-    //
-    // path_asset_impl!(repository, Repository, Repository, |s: &mut AssetPath<IndexPath>| -> Result<Repository, PathError> {
-    //     let str = String::from_utf8(s.name_bytes()?[2..4].to_owned()).or(Err(PathError::Invalid(format!("Failed to get repository from '{}'", s.path))))?;
-    //     let val = Repository::from_hex_str(&str).or_else(|e| Err(PathError::Invalid(e.to_string())))?;
-    //     Ok(val)
-    // });
-    //
-    // path_asset_impl!(chunk, Chunk, Chunk, |s: &mut AssetPath<IndexPath>| -> Result<Chunk, PathError> {
-    //     let str = String::from_utf8(s.name_bytes()?[4..6].to_owned()).or(Err(PathError::Invalid(format!("Failed to get chunk from '{}'", s.path))))?;
-    //     let val = Chunk::from_hex_str(&str).or_else(|e| Err(PathError::Invalid(e.to_string())))?;
-    //     Ok(val)
-    // });
-    //
-    // path_asset_impl!(platform, Platform, Platform, |s: &mut AssetPath<IndexPath>| -> Result<Platform, PathError> {
-    //     let val = Platform::from_str_contains(&s.name()?).or_else(|e| Err(PathError::Invalid(e.to_string())))?;
-    //     Ok(val)
-    // });
-}
-
-impl Default for IndexPath {
-    fn default() -> Self {
-        Self {
-            category: None,
-            repository: None,
-            chunk: None,
-            platform: None
-        }
-    }
-}
-
-//==================================================================================================
+use crate::ffxiv::metadata::{Category, Chunk, Platform, Repository};
 
 #[derive(Debug, Clone)]
 pub struct DatPath {
-    dir: Option<String>,
-    dir_hash: Option<u32>,
-    name_hash: Option<u32>,
-    index1_hash: Option<u64>,
-    index2_hash: Option<u32>,
-    repository: Option<Repository>,
-    category: Option<Category>,
-    platform: Option<Platform>,
-    components: Option<Vec<String>>,
+    pub path: PathBuf,
+    pub path_str: String,
+    pub path_extension: String,
+    pub path_name: String,
+    pub path_stem: String,
+    pub path_dir: String,
+    pub index1_hash: u64,
+    pub index2_hash: u32,
+    pub data_repo: Repository,
+    pub data_category: Category,
+    pub data_platform: Platform,
 }
 
-impl Default for DatPath {
-    fn default() -> Self {
-        Self {
-            dir: None,
-            dir_hash: None,
-            name_hash: None,
-            index1_hash: None,
-            index2_hash: None,
-            repository: None,
-            category: None,
-            platform: None,
-            components: None
-        }
+impl DatPath {
+    pub fn new(full_path: &str) -> Result<DatPath, String> {
+        let full_path = full_path.to_lowercase();
+        let path = PathBuf::from(&full_path);
+        let path_name = path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
+        let path_stem = path.file_stem().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
+        let path_extension = path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;
+        let path_dir = path.parent().ok_or("Failed to get parent dir.")?.to_str().ok_or("Failed to convert parent dir to str.")?;
+
+        let components: Vec<Option<&str>> = path.components().map(|c| c.as_os_str().to_str()).collect();
+        let data_category = Category::from_str(components.get(0).ok_or("Failed to get category name.")?.ok_or("Failed to get category name as str.")?).unwrap();
+        let data_repo = Repository::from_str(components.get(1).ok_or("Failed to get repository name.")?.ok_or("Failed to get repository name as str.")?);
+
+        let data_folder = DatPath::hash(path_dir);
+        //let data_category_hash = AssetPath::hash(data_category.name.as_str());
+        let data_name_hash = DatPath::hash(path_name);
+        let data_platform = Platform::from_u32(0)?;
+
+        let index1_hash = DatPath::double_hash(data_folder, data_name_hash);
+        let index2_hash = DatPath::hash(&full_path);
+
+        Ok(
+            DatPath {
+                path: path.clone(),
+                path_str: String::from(full_path),
+                path_extension: String::from(path_extension),
+                path_stem: String::from(path_stem),
+                path_dir: String::from(path_dir),
+                path_name: String::from(path_name),
+                index1_hash,
+                index2_hash,
+                data_repo,
+                data_category,
+                data_platform,
+            }
+        )
+    }
+
+
+    fn hash(string: &str) -> u32 {
+        let crc = Crc::<u32>::new(&CRC_32_JAMCRC);
+        let mut digest = crc.digest();
+        digest.update(string.as_bytes());
+        digest.finalize()
+    }
+
+    fn double_hash(category_hash: u32, file_name_hash: u32) -> u64 {
+        return ((category_hash as u64) << 32) | (file_name_hash as u64);
     }
 }
 
-impl AssetPath<DatPath> {
+//==================================================================================================
 
-    pub fn new(path: String) -> AssetPath<DatPath> {
-        AssetPath {
-            path: path.to_lowercase(),
-            buf: None,
-            name: None,
-            name_bytes: None,
-            stem: None,
-            extension: None,
-            asset: DatPath::default()
-        }
+#[derive(Debug, Clone)]
+pub struct FilePath {
+    pub path: PathBuf,
+    pub path_str: String,
+    pub path_name: String,
+    pub path_stem: String,
+    pub path_extension: String,
+    pub data_category: Category,
+    pub data_repository: Repository,
+    pub data_chunk: Chunk,
+    pub data_platform: Platform,
+}
+
+impl PartialEq for FilePath {
+    fn eq(&self, other: &Self) -> bool {
+        self.path_stem == other.path_stem
     }
+}
 
-    // path_asset_impl!(components, Vec<String>, Vec<String>, |s: &mut AssetPath<DatPath>| -> Result<Vec<String>, PathError> {
-    //     let mut components: Vec<String> = Vec::new();
-    //     for c in s.buf().components() {
-    //         let component = c.as_os_str().to_str().ok_or(PathError::Invalid(format!("Failed to convert parent dir to str.")))?.to_owned();
-    //         components.push(component);
-    //     }
-    //     Ok(components)
-    // });
-    //
-    // path_asset_impl!(dir, String, str, |s: &mut AssetPath<DatPath>| -> Result<String, PathError> {
-    //     Ok(s.buf().parent().ok_or(PathError::Invalid(format!("Failed to get parent dir.")))?.to_str().ok_or(PathError::Invalid(format!("Failed to convert parent dir to str.")))?.to_owned())
-    // });
-    //
-    // path_asset_impl!(dir_hash, u32, u32, |s: &mut AssetPath<DatPath>| -> Result<u32, PathError> {
-    //     let dir = s.dir()?;
-    //     let bytes = dir.as_bytes();
-    //     Ok(s.hash(bytes))
-    // });
-    //
-    // path_asset_impl!(name_hash, u32, u32, |s: &mut AssetPath<DatPath>| -> Result<u32, PathError> {
-    //     let name = s.name()?;
-    //     let bytes = name.as_bytes();
-    //     Ok(s.hash(bytes))
-    // });
-    //
-    // path_asset_impl!(index1_hash, u64, u64, |s: &mut AssetPath<DatPath>| -> Result<u64, PathError> {
-    //     let dir_hash = s.dir_hash()?.to_owned();
-    //     let name_hash = s.name_hash()?.to_owned();
-    //     Ok(s.double_hash(dir_hash, name_hash))
-    // });
-    //
-    // path_asset_impl!(index2_hash, u32, u32, |s: &mut AssetPath<DatPath>| -> Result<u32, PathError> {
-    //     let path = s.path.clone();
-    //     let path = path.as_bytes();
-    //     let hash = s.hash(path);
-    //     Ok(hash)
-    // });
-    //
-    // fn hash(&mut self, string: &[u8]) -> u32 {
-    //     let crc = Crc::<u32>::new(&CRC_32_JAMCRC);
-    //     let mut digest = crc.digest();
-    //     digest.update(string);
-    //     digest.finalize()
-    // }
-    //
-    // fn double_hash(&mut self, category_hash: u32, file_name_hash: u32) -> u64 {
-    //     return ((category_hash as u64) << 32) | (file_name_hash as u64);
-    // }
+impl FilePath {
+    pub fn new(file_path: PathBuf) -> Result<FilePath, String> {
+        let file_path_str = file_path.as_os_str().to_str().ok_or("Failed to convert path to str.")?;
+        let file_name = file_path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
+        let file_stem = file_path.file_stem().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
+        let file_extension = file_path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;
+        //let file_path_components: Vec<Option<&str>> = file_path.components().map(|c| c.as_os_str().to_str()).collect();
+
+        let file_name_bytes = file_name.as_bytes();
+        let file_name_regex = RegByte::new(r"^(\d|[a-z]){6}\.(win32|ps3|ps4)\.(dat|index)\d*$").or(Err("Failed to create regex"))?;
+        file_name_regex.captures(file_name_bytes).ok_or(format!("File name '{}' is invalid.", file_name))?;
+
+        let category_str = String::from_utf8(file_name_bytes[0..2].to_vec()).or(Err("Failed to slice name to category"))?;
+        let repository_str = String::from_utf8(file_name_bytes[2..4].to_vec()).or(Err("Failed to slice name to repository"))?;
+        let chunk_str = String::from_utf8(file_name_bytes[4..6].to_vec()).or(Err("Failed to slice name to chunk"))?;
+
+        let data_category = Category::from_hex_str(&category_str).unwrap();
+        let data_repository = Repository::from_hex_str(&repository_str)?;
+        let data_chunk = Chunk::from_hex_str(&chunk_str)?;
+        let data_platform = Platform::from_str_contains(&file_name)?;
+
+
+        Ok(
+            FilePath {
+                path_str: String::from(file_path_str),
+                path: file_path.clone(),
+                path_name: String::from(file_name),
+                path_stem: String::from(file_stem),
+                path_extension: String::from(file_extension),
+                data_category,
+                data_repository,
+                data_chunk,
+                data_platform,
+            }
+        )
+    }
 }
 
 //==================================================================================================
