@@ -1,6 +1,7 @@
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use crate::ffxiv::buffer_file::BufferFile;
 use flate2::{Decompress, FlushDecompress};
 use crate::ffxiv::asset_exd_file::AssetEXDFile;
@@ -51,7 +52,8 @@ pub struct AssetDatFile {
 
 impl AssetDatFile {
     pub fn from_dat_files(dat_files: &Vec<AssetFilePath>, dat_id: u32, offset: u64) -> AssetDatFile {
-        let data_item = dat_files.iter().find(|d| d.data_chunk.id == dat_id).ok_or("Data file could not be found.").unwrap();
+        let find_this_dat =  format!("dat{}", dat_id);
+        let data_item = dat_files.iter().find(|d| d.file_extension == find_this_dat).ok_or("Data file could not be found.").unwrap();
         AssetDatFile::from_file_path(&data_item.file_path, offset)
     }
 
@@ -101,6 +103,24 @@ impl AssetDatFile {
         let data: Vec<u8> = self.to_decompressed().concat();
         let mut data_buf = BufferVec::new(data);
         AssetEXDFile::new(&mut data_buf, exh)
+    }
+
+    pub fn to_exl(&self) -> Vec<(String, i32)> {
+        let data: Vec<u8> = self.to_decompressed().concat();
+        let mut output: Vec<(String, i32)> = Vec::new();
+        let mut line: String = String::new();
+        for byte in data {
+            if byte == b'\n' || byte == b'\r' {
+                if line.len() > 3 {
+                    let line_parts: Vec<&str> = line.split(',').collect();
+                    output.push((line_parts[0].to_owned(), i32::from_str(line_parts[1]).unwrap()));
+                    line = String::new();
+                }
+            } else {
+                line.push(byte as char)
+            }
+        }
+        output
     }
 
     // pub fn get_exh_page(&self, page: usize, lang: AssetEXHFileLanguage) {
@@ -202,6 +222,8 @@ impl AssetDatFileDataBlock {
     }
     pub fn from_header(data_file: &mut BufferFile, asset_dat_file_header: &AssetDatFileHeader, data_file_offset: u64) -> Vec<AssetDatFileDataBlock> {
         data_file.offset_set(data_file_offset + asset_dat_file_header.header_size as u64);
-        asset_dat_file_header.blocks.iter().map(|block_metadata| AssetDatFileDataBlock::new(data_file, data_file_offset, asset_dat_file_header, block_metadata)).collect()
+        asset_dat_file_header.blocks.iter().map(|block_metadata| {
+            AssetDatFileDataBlock::new(data_file, data_file_offset, asset_dat_file_header, block_metadata)
+        }).collect()
     }
 }

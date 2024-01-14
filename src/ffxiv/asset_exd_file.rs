@@ -47,8 +47,8 @@ impl AssetEXDFile {
             let mut columns: Vec<AssetEXDFileColumnKind> = Vec::new();
             for column in &exh.columns {
                 let mut data_row_column_offset = row_metadata.offset as usize + column.offset as usize + exh.data_offset as usize + 6;
-                if data_row_column_offset >= max_file_size {
-                    let column_size = AssetEXHFileColumnKind::sizes(&column.kind);
+                let column_size = AssetEXHFileColumnKind::sizes(&column.kind);
+                if data_row_column_offset + column_size >= max_file_size {
                     data_row_column_offset = max_file_size - column_size;
                 }
                 let data = AssetEXDFileColumnKind::new_at(buffer, &column.kind, data_row_column_offset);
