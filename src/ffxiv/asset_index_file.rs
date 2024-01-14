@@ -46,35 +46,37 @@ pub struct AssetIndexFile<T> {
 
 trait AssetIndexFileParser<T> {
     fn parse_header(buffer: &mut BufferVec) -> AssetIndexFile<T> {
+        buffer.offset = 0;
+
         let file_signature = buffer.string(0x00, 0x08);
-        let file_platform = AssetFilePlatform::from_u32(buffer.u8(0x08) as u32).unwrap();
-        let file_header_offset = buffer.u32(0x0C);
-        let file_version = buffer.u32(0x10);
-        let file_type = buffer.u32(0x10);
+        let file_platform = AssetFilePlatform::from_u32(buffer.u8_at(0x08) as u32).unwrap();
+        let file_header_offset = buffer.le_u32_at(0x0C);
+        let file_version = buffer.le_u32_at(0x10);
+        let file_type = buffer.le_u32_at(0x10);
 
         let offset = file_header_offset as usize;
 
-        let header_size = buffer.u32(offset);
-        let header_type = buffer.u32(offset + 0x04);
-        let header_data_offset = buffer.u32(offset + 0x08);
-        let header_data_size = buffer.u32(offset + 0x0C);
+        let header_size = buffer.le_u32_at(offset);
+        let header_type = buffer.le_u32_at(offset + 0x04);
+        let header_data_offset = buffer.le_u32_at(offset + 0x08);
+        let header_data_size = buffer.le_u32_at(offset + 0x0C);
 
         let offset = file_header_offset as usize + 0x50;
 
-        let header2_size = buffer.u32(offset);
-        let header2_offset = buffer.u32(offset + 0x04);
-        let header2_empty_space_size = buffer.u32(offset + 0x08);
-        let header2_data_size = buffer.u32(offset + 0x0C);
+        let header2_size = buffer.le_u32_at(offset);
+        let header2_offset = buffer.le_u32_at(offset + 0x04);
+        let header2_empty_space_size = buffer.le_u32_at(offset + 0x08);
+        let header2_data_size = buffer.le_u32_at(offset + 0x0C);
 
         let offset = file_header_offset as usize + 0x90;
 
-        let header3_offset = buffer.u32(offset + 0x0C);
-        let header3_data_size = buffer.u32(offset + 0x10);
+        let header3_offset = buffer.le_u32_at(offset + 0x0C);
+        let header3_data_size = buffer.le_u32_at(offset + 0x10);
 
         let offset = file_header_offset as usize + 0xE0;
 
-        let header4_offset = buffer.u32(offset + 0x04);
-        let header4_data_size = buffer.u32(offset + 0x08);
+        let header4_offset = buffer.le_u32_at(offset + 0x04);
+        let header4_data_size = buffer.le_u32_at(offset + 0x08);
 
         let mut data1: Vec<T> = Vec::new();
 
@@ -121,8 +123,8 @@ impl AssetIndexFile<Index1Data1Item> {
     fn parse_index1_data(buffer: &mut BufferVec, output: &mut Vec<Index1Data1Item>, header_data_offset: usize, header_data_size: usize) {
         for offset_line in (0..header_data_size).step_by(16) {
             let offset = (header_data_offset + offset_line) as usize;
-            let hash = buffer.u64(offset);
-            let data = buffer.u32(offset + 0x08);
+            let hash = buffer.le_u64_at(offset);
+            let data = buffer.le_u32_at(offset + 0x08);
             let data_file_id = (data & 0b1110) >> 1;
             let data_file_offset = (data as u64 & !0xF) * 0x08;
             output.push(Index1Data1Item {
@@ -145,8 +147,8 @@ impl AssetIndexFile<Index2Data1Item> {
     fn parse_index2_data(buffer: &mut BufferVec, output: &mut Vec<Index2Data1Item>, header_data_offset: usize, header_data_size: usize) {
         for offset_line in (0..header_data_size).step_by(8) {
             let offset = (header_data_offset + offset_line) as usize;
-            let hash = buffer.u32(offset);
-            let data = buffer.u32(offset + 0x04);
+            let hash = buffer.le_u32_at(offset);
+            let data = buffer.le_u32_at(offset + 0x04);
             let data_file_id = (data & 0b1110) >> 1;
             let data_file_offset = (data as u64 & !0xF) * 0x08;
             output.push(Index2Data1Item {

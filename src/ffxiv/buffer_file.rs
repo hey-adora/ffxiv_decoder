@@ -50,8 +50,8 @@ macro_rules! read_be_or_le_at_impl {
 }
 
 pub struct BufferFile {
-    file_handle: RandomAccessFile,
-    offset: u64,
+    pub file_handle: RandomAccessFile,
+    pub offset: u64,
 }
 
 impl BufferFile {

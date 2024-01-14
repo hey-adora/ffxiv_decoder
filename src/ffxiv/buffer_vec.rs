@@ -158,4 +158,15 @@ impl BufferVec {
     pub fn slice_at(&mut self, start: usize, size: usize) -> &[u8] {
         &self.bytes[start..start + size]
     }
+
+    pub fn offset_set(&mut self, offset: usize) -> usize {
+        self.offset = offset;
+        self.offset
+    }
+
+    pub fn offset_add(&mut self, offset: usize) -> usize {
+        self.offset += offset;
+        self.offset
+    }
+
 }
