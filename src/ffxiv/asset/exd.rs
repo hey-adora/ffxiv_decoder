@@ -70,7 +70,9 @@ impl EXD {
         let rows: Vec<Vec<EXDColumn>> = rows_metadata.iter().map(|row_metadata| {
             let mut columns: Vec<EXDColumn> = Vec::new();
             for column in &exh.columns {
-                let mut data_row_column_offset = row_metadata.offset as u64 + column.offset as u64 + exh.data_offset as u64 + 6;
+                let column_offset_to_offset: u64 = row_metadata.offset as u64 + column.offset_to_offset as u64 + 6;
+                let column_offset = buffer.be_u32_at(column_offset_to_offset);
+                let mut data_row_column_offset = row_metadata.offset as u64 + exh.data_offset as u64 + 6 + column_offset as u64;
                 let column_size = EXHColumnKind::sizes(&column.kind);
                 if data_row_column_offset + column_size >= max_file_size {
                     data_row_column_offset = max_file_size - column_size;

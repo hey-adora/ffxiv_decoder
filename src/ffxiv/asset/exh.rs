@@ -57,7 +57,7 @@ impl Display for EXH {
 
 pub struct EXHColumn {
     pub kind: EXHColumnKind,
-    pub offset: u16
+    pub offset_to_offset: u16
 }
 
 pub struct AssetEXHFileRow {
@@ -279,7 +279,7 @@ impl EXHColumn {
                 0x20 => EXHColumnKind::PackedBool7,
                 _ => panic!("Asset column kind '{}'", kind)
             },
-            offset: buffer.be_u16(),
+            offset_to_offset: buffer.be_u16(),
         }
     }
 }
