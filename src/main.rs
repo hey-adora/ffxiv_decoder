@@ -14,7 +14,7 @@ static FILE_PATH: &str = "./line.scd";
 fn main() {
     let buffer = Parser::read_file(FILE_PATH);
     let mut scd_parser = Parser::new(buffer, 16);
-    scd_parser.print();
+    scd_parser.parse();
 
     // let a = get_hex(&buffer, 0x00, 0x08, PrintHexColor::Green);
     // println!("{}", a.value);
