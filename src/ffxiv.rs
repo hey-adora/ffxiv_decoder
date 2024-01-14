@@ -5,6 +5,7 @@ use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
+use crate::ffxiv::asset::Asset;
 use crate::ffxiv::asset::dat::{DatHeaderType, DecompressError, StandardFile, TextureFile};
 use crate::ffxiv::asset::exd::EXD;
 use crate::ffxiv::asset::exh::{EXH, EXHColumnKind, EXHLang};
@@ -214,6 +215,10 @@ impl FFXIV {
         };
 
         None
+    }
+
+    pub fn get_exh(&self, path: &str) -> Asset<EXH> {
+        Asset::new(self, path)
     }
 
     pub fn get_paths(&self, paths_file: &str) -> HashMap<u64, DatPath> {
