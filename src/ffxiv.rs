@@ -24,7 +24,7 @@ pub mod buffer_file;
 pub mod buffer_vec;
 pub mod asset_scd_file;
 pub mod asset_dat_file;
-pub mod asset;
+pub mod ffxiv_asset;
 pub mod game;
 pub mod save_file;
 pub mod asset_exh_file;
