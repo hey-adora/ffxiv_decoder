@@ -1,9 +1,11 @@
 use std::fs;
+use crate::ffxiv::asset_dat_file::AssetDatFile;
 use crate::ffxiv::asset_files::FFXIVAssetFiles;
 use crate::ffxiv::asset_index_file::AssetIndexFile;
 use crate::ffxiv::asset_path::AssetPath;
 use crate::ffxiv::buffer_file::BufferFile;
 use crate::ffxiv::buffer_vec::BufferVec;
+use crate::ffxiv::save_file::SaveFilePath;
 
 pub mod asset_files;
 pub mod asset_file_path;
@@ -17,6 +19,9 @@ pub mod buffer_file;
 pub mod buffer_vec;
 pub mod asset_scd_file;
 pub mod asset_dat_file;
+pub mod asset;
+pub mod game;
+pub mod save_file;
 
 pub fn test(game_path: &str, index_path: &str) {
     let parsed_index_path = AssetPath::from_str(index_path).unwrap();
@@ -43,11 +48,9 @@ pub fn test(game_path: &str, index_path: &str) {
             let data_item_path = data_item.file_path.as_os_str().to_str().unwrap();
             let mut data_file = BufferFile::from_file_path(data_item_path);
 
-            let asset_metadata = DatFileNormalAssetMetadata::new(&mut data_file, item.data_file_offset);
-            let compressed_asset_data_blocks = DatFileNormalAssetBlockData::from_metadata(&mut data_file, &asset_metadata, item.data_file_offset);
-            let decompressed_asset_data_blocks = decompress(compressed_asset_data_blocks);
+            let asset_dat_file = AssetDatFile::new(&mut data_file, item.data_file_offset);
             let save_file = SaveFilePath::from_index_path(&parsed_index_path);
-            save_file.write_blocks(decompressed_asset_data_blocks);
+            save_file.write_blocks(asset_dat_file.to_decompressed());
         }
     }
 }
