@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use sqex_scd_file_parser::scd_parser::Parser;
 
 use colored::Colorize;

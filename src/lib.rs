@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 pub mod scd_parser {
     //use colored::Colorize;
     use std::fs::File;
@@ -49,6 +52,22 @@ pub mod scd_parser {
         pub space: PrintColor,
     }
 
+    // pub trait ParseFromU8<T, E> {
+    //     fn parse_from_u8(buffer: Vec<u8>) -> Result<T, E>;
+    // }
+
+    // impl ParseFromU8<String, std::string::FromUtf8Error> for String {
+    //     fn parse_from_u8(buffer: Vec<u8>) -> Result<String, std::string::FromUtf8Error> {
+    //         String::from_utf8(buffer)
+    //     }
+    // }
+
+    // impl ParseFromU8<u8> for u8 {
+    //     fn parse_from_u8(buffer: Vec<u8>) -> u8 {
+    //         u8::from_ne_bytes(bytes)
+    //     }
+    // }
+
     impl Parser {
         pub fn read_file(file_path: &str) -> Vec<u8> {
             let file = File::open(file_path).expect("Failed to open file.");
@@ -75,10 +94,19 @@ pub mod scd_parser {
         }
 
         pub fn parse(&mut self) {
-            let gg = self.read_hex(0x00, 0x08, PrintColor::Green);
-            println!("{}", gg.value);
+            //let signature = self.string(0x00, 0x08);
+            //let version = self.i16(0x08);
+            //let big_endian = self.u8(0x0c);
+            //let sscf_version = self.u8(0x0d);
+            //let tables_offset = self.i16(0x0e);
+            let size_of_table_0 = self.i16(0x30);
+            // println!("{}", size_of_table_0);
+
             self.print_column_headers();
             for hex in &self.buffer {
+                if self.parse_index > 250 {
+                    break;
+                }
                 self.parse_cursor = *hex;
 
                 if self.print_column_index < *&self.print_column_count {
@@ -88,15 +116,17 @@ pub mod scd_parser {
                     self.print_row();
                     self.print_row.clear();
                     self.print_column_index = 0;
+                    self.print_row_index += self.print_column_count;
                 }
 
                 self.parse_index += 1;
             }
         }
 
-        fn read_hex(&mut self, start: usize, size: usize, color: PrintColor) -> HexValue<String> {
+
+        fn read_hex(&mut self, start: usize, size: usize, color: PrintColor) -> Vec<u8> {
             let mut hex_list: Vec<u8> = Vec::new();
-            for index in (start..size) {
+            for index in start..start + size {
                 let value = self.buffer[index];
                 hex_list.push(value)
             }
@@ -106,13 +136,14 @@ pub mod scd_parser {
                 size,
                 color,
             };
-            let value = String::from_utf8(hex_list.clone()).expect("Failed to parse hex list");
-            self.print_marks.push(mark.clone());
-            HexValue {
-                hex_list,
-                mark,
-                value,
-            }
+            //let value = String::from_utf8(hex_list.clone()).expect("Failed to parse hex list");
+            self.print_marks.push(mark);
+            // HexValue {
+            //     hex_list,
+            //     mark,
+            //     value,
+            // }
+            hex_list
         }
 
         fn print_row(&self) {
@@ -136,31 +167,31 @@ pub mod scd_parser {
                     self.print_color(" ", PrintColor::Default, color_pack.space);
                 }
             }
-            self.print_color("  ", PrintColor::Default, PrintColor::Default);
-            for (index, hex_column) in self.print_row.iter().enumerate() {
-                let color_pack = self.print_color_picker(index);
-                let print_hex = format!(
-                    "{}",
-                    if *hex_column > 32 && 127 > *hex_column {
-                        *hex_column as char
-                    } else {
-                        '.'
-                    }
-                );
+            // self.print_color("  ", PrintColor::Default, PrintColor::Default);
+            // for (index, hex_column) in self.print_row.iter().enumerate() {
+            //     let color_pack = self.print_color_picker(index);
+            //     let print_hex = format!(
+            //         "{}",
+            //         if *hex_column > 32 && 127 > *hex_column {
+            //             *hex_column as char
+            //         } else {
+            //             '.'
+            //         }
+            //     );
 
-                self.print_color(&print_hex, PrintColor::Default, color_pack.text);
-                if index == length / 2 - 1 {
-                    self.print_color(" ", PrintColor::Default, color_pack.space);
-                }
-                if index < length - 1 {
-                    self.print_color(" ", PrintColor::Default, color_pack.space);
-                }
-            }
+            //     self.print_color(&print_hex, PrintColor::Default, color_pack.text);
+            //     if index == length / 2 - 1 {
+            //         self.print_color(" ", PrintColor::Default, color_pack.space);
+            //     }
+            //     if index < length - 1 {
+            //         self.print_color(" ", PrintColor::Default, color_pack.space);
+            //     }
+            // }
         }
 
         fn print_column_headers(&self) {
             self.print_color("Adress ", PrintColor::Red, PrintColor::Default);
-            for index in (0..self.print_column_count) {
+            for index in 0..self.print_column_count {
                 let print_hex = format!("{:02x}", index);
                 self.print_color(&print_hex, PrintColor::Red, PrintColor::Default);
                 if index == self.print_column_count / 2 - 1 {
@@ -180,10 +211,10 @@ pub mod scd_parser {
             let mark = self
                 .print_marks
                 .iter()
-                .find(|x| x.start >= relative_index - index && relative_index <= x.end);
+                .find(|x| x.start <= relative_index && relative_index <= x.end - 1);
             if let Some(m) = mark {
                 text_color = m.color;
-                if m.end != relative_index {
+                if m.end - 2 >= relative_index {
                     space_color = m.color;
                 }
             }
@@ -196,5 +227,110 @@ pub mod scd_parser {
         fn print_color(&self, value: &str, text: PrintColor, background: PrintColor) {
             print!("\x1b[3{};4{}m{}\x1b", text as u8, background as u8, value);
         }
+
+
+                fn string(&mut self, start: usize, size: usize) -> String {
+            String::from_utf8(self.read_hex(start, size, PrintColor::Green)).unwrap()
+        }
+
+        fn u8(&mut self, start: usize) -> u8 {
+            u8::from_ne_bytes(Parser::buffer_1b(self.read_hex(
+                start,
+                0x01,
+                PrintColor::Yellow,
+            )))
+        }
+
+        fn i8(&mut self, start: usize) -> i8 {
+            i8::from_ne_bytes(Parser::buffer_1b(self.read_hex(
+                start,
+                0x01,
+                PrintColor::Yellow,
+            )))
+        }
+
+        fn u16(&mut self, start: usize) -> u16 {
+            u16::from_ne_bytes(Parser::buffer_2b(self.read_hex(
+                start,
+                0x02,
+                PrintColor::Blue,
+            )))
+        }
+
+        fn i16(&mut self, start: usize) -> i16 {
+            i16::from_ne_bytes(Parser::buffer_2b(self.read_hex(
+                start,
+                0x02,
+                PrintColor::Blue,
+            )))
+        }
+
+        fn i32(&mut self, start: usize) -> i32 {
+            i32::from_ne_bytes(Parser::buffer_4b(self.read_hex(
+                start,
+                0x04,
+                PrintColor::Cyan,
+            )))
+        }
+
+        fn u32(&mut self, start: usize) -> u32 {
+            u32::from_ne_bytes(Parser::buffer_4b(self.read_hex(
+                start,
+                0x04,
+                PrintColor::Cyan,
+            )))
+        }
+
+        fn u64(&mut self, start: usize) -> u64 {
+            u64::from_ne_bytes(Parser::buffer_8b(self.read_hex(
+                start,
+                0x08,
+                PrintColor::Magenta,
+            )))
+        }
+
+        fn i64(&mut self, start: usize) -> i64 {
+            i64::from_ne_bytes(Parser::buffer_8b(self.read_hex(
+                start,
+                0x08,
+                PrintColor::Magenta,
+            )))
+        }
+
+        fn buffer_8b(buffer: Vec<u8>) -> [u8; 8] {
+            let mut static_buffer: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+            Parser::buffer_fill(&mut static_buffer, &buffer);
+            static_buffer
+        }
+
+        fn buffer_4b(buffer: Vec<u8>) -> [u8; 4] {
+            let mut static_buffer: [u8; 4] = [0, 0, 0, 0];
+            Parser::buffer_fill(&mut static_buffer, &buffer);
+            static_buffer
+        }
+
+        fn buffer_2b(buffer: Vec<u8>) -> [u8; 2] {
+            let mut static_buffer: [u8; 2] = [0, 0];
+            Parser::buffer_fill(&mut static_buffer, &buffer);
+            static_buffer
+        }
+
+        fn buffer_1b(buffer: Vec<u8>) -> [u8; 1] {
+            let mut static_buffer: [u8; 1] = [0];
+            Parser::buffer_fill(&mut static_buffer, &buffer);
+            static_buffer
+        }
+
+        fn buffer_fill(static_buffer: &mut [u8], buffer: &Vec<u8>) {
+            let len = static_buffer.len();
+            if buffer.len() < len {
+                panic!("Buffer is too small: {:?}", buffer);
+            }
+            for index in 0..len {
+                let item = buffer[index];
+                static_buffer[index] = item;
+            }
+        }
+
     }
 }
