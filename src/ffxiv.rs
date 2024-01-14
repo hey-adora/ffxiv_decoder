@@ -50,6 +50,14 @@ impl FFXIV {
         }
     }
 
+    pub fn get_asset_standard_by_dat_path(&self, path: &DatPath) -> Result<StandardFile, AssetFindError> {
+        let asset = self.get_asset_by_dat_path(&path)?;
+        match asset {
+            FileType::Standard(exh) => Ok(exh),
+            _ => Err(AssetFindError::NotFound(format!("Not standard file '{}'", path.path_str)))
+        }
+    }
+
     pub fn read_asset(&self, dat: FilePath, index: Index1Data1Item) -> Result<FileType, AssetFindError> {
         let mut buffer = Buffer::from_file_path(&dat.path);
         let header_type = DatHeaderType::check_at(&mut buffer, index.data_file_offset)?;
@@ -237,12 +245,12 @@ impl FFXIV {
 
 
     pub fn save_all_cvs(&self) -> Result<(), CSVExportError> {
-        let exl =  self.get_asset("exd/root.exl").ok_or(CSVExportError::RootNotFound)?.decompress()?;
+        let exl =  self.get_asset("exd/root.exl")?.decompress()?;
         let exl = EXL::from_vec(exl);
         for (name, ukwn) in exl.lines {
             let name = name.to_lowercase();
             let asset_path = &format!("exd/{}.exh", name);
-            let exh =  self.get_asset(asset_path).ok_or(CSVExportError::EXHNotFound(asset_path.to_owned()));
+            let exh =  self.get_asset(asset_path)?;
 
             if let Ok(exh) = exh {
                 let exh = EXH::from_vec(exh.decompress()?);

@@ -39,9 +39,9 @@ impl Display for EXD {
             let row: String = row.iter().map(|c| {
                 let value = c.to_string();
                 if value.len() > 0 {
-                    return value;
+                    return format!("\"{}\"",value);
                 } else {
-                    return String::from("EMPTY");
+                    return String::from("\"EMPTY\"");
                 }
             }).collect::<Vec<String>>().join(",");
             rows.push_str(&row);
