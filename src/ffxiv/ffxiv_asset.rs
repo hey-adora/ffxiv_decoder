@@ -2,29 +2,30 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use crc::{Crc, CRC_32_JAMCRC};
+use flate2::{Decompress, FlushDecompress};
 use crate::ffxiv::asset_files::FFXIVAssetFiles;
 use regex::bytes::Regex as RegByte;
 use regex::Regex as Reg;
 use crate::ffxiv::ffxiv_buffer::{FFXIVBuffer, FFXIVBufferReader};
 
-pub struct FFXIVAsset {
-
-}
-
-enum FFXIVAssetType {
-    Raw(Vec<u8>)
-}
-
-
-
-impl FFXIVAsset {
-    pub fn from_dat_file(dat_path: &str) {
-        let dat_path = FFXIVAssetPathDat::from_str(dat_path).unwrap();
-        dat_path
-        let index_file = FFXIVAssetParserIndex::from_index1_file(file_path);
-        FFXIVAssetParserDat::from_dat_file()
-    }
-}
+// pub struct FFXIVAsset {
+//
+// }
+//
+// enum FFXIVAssetType {
+//     Raw(Vec<u8>)
+// }
+//
+//
+//
+// impl FFXIVAsset {
+//     pub fn from_dat_file(dat_path: &str) {
+//         let dat_path = FFXIVAssetPathDat::from_str(dat_path).unwrap();
+//         dat_path
+//         let index_file = FFXIVAssetParserIndex::from_index1_file(file_path);
+//         FFXIVAssetParserDat::from_dat_file()
+//     }
+// }
 
 //==================================================================================================
 
@@ -37,23 +38,37 @@ pub struct FFXIVAssetParserDat {
 impl FFXIVAssetParserDat {
     pub fn from_dat_files(dat_files: &Vec<FFXIVAssetPathFile>, dat_id: u32, offset: u64) -> FFXIVAssetParserDat {
         let find_this_dat =  format!("dat{}", dat_id);
-        let data_item = dat_files.iter().find(|d| d.path_extension == find_this_dat).ok_or("Data file could not be found.").unwrap();
-        FFXIVAssetParserDat::from_file_path(&data_item.path_str, offset)
+        let dat_file = dat_files.iter().find(|d| d.path_extension == find_this_dat).ok_or("Data file could not be found.").unwrap();
+        FFXIVAssetParserDat::from_file_path(&dat_file.path_str, offset)
     }
 
     pub fn from_file_path<P: AsRef<Path>>(file_path: P, offset: u64) -> FFXIVAssetParserDat {
-        let mut data_file = FFXIVBuffer::from_file_path(file_path);
-        FFXIVAssetParserDat::from_dat_file(&mut data_file, offset)
+        let mut dat_file = FFXIVBuffer::from_file_path(file_path);
+        FFXIVAssetParserDat::from_dat_file(&mut dat_file, offset)
     }
 
-    pub fn from_dat_file<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> FFXIVAssetParserDat {
-        let header = FFXIVAssetParserDatHeader::new(data_file, data_file_offset);
-        let raw_data_blocks = FFXIVAssetParserDatBlock::from_header(data_file, &header, data_file_offset);
+    pub fn from_dat_file<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, dat_file_offset: u64) -> FFXIVAssetParserDat {
+        let header = FFXIVAssetParserDatHeader::new(data_file, dat_file_offset);
+        let raw_data_blocks = FFXIVAssetParserDatBlock::from_header(data_file, &header, dat_file_offset);
 
         FFXIVAssetParserDat {
             header,
             raw_data_blocks
         }
+    }
+
+    pub fn to_decompressed(&self) -> Vec<Vec<u8>> {
+        self.raw_data_blocks.iter().map(|block| {
+            match block.block_type {
+                FFXIVAssetParserDatBlockType::Compressed(n) => {
+                    let mut decompressed_block_data: Vec<u8> = Vec::with_capacity(block.uncompressed_block_size as usize);
+                    let mut decompressor = Decompress::new(false);
+                    decompressor.decompress_vec(&block.data, &mut decompressed_block_data, FlushDecompress::None).unwrap();
+                    decompressed_block_data
+                }
+                FFXIVAssetParserDatBlockType::Uncompressed(n) => block.data.clone()
+            }
+        }).collect()
     }
 }
 
@@ -161,6 +176,7 @@ impl FFXIVAssetParserDatBlock {
             data,
         }
     }
+
     pub fn from_header<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, asset_dat_file_header: &FFXIVAssetParserDatHeader, data_file_offset: u64) -> Vec<FFXIVAssetParserDatBlock> {
         data_file.offset_set(data_file_offset + asset_dat_file_header.header_size as u64);
         asset_dat_file_header.blocks.iter().map(|block_metadata| {
@@ -189,7 +205,7 @@ impl FFXIVAssetParserDatBlockType {
 
 //==================================================================================================
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FFXIVAssetParserIndex1Data1Item {
     pub hash: u64,
     pub data: u32,
@@ -197,7 +213,7 @@ pub struct FFXIVAssetParserIndex1Data1Item {
     pub data_file_offset: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FFXIVAssetParserIndex2Data1Item {
     pub hash: u32,
     pub data: u32,
@@ -206,7 +222,7 @@ pub struct FFXIVAssetParserIndex2Data1Item {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FFXIVAssetParserIndex<T> {
     pub file_signature: String,
     pub file_platform: FFXIVAssetPlatform,
