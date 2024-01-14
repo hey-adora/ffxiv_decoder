@@ -94,17 +94,35 @@ pub mod scd_parser {
         }
 
         pub fn parse(&mut self) {
-            //let signature = self.string(0x00, 0x08);
-            //let version = self.i16(0x08);
-            //let big_endian = self.u8(0x0c);
-            //let sscf_version = self.u8(0x0d);
-            //let tables_offset = self.i16(0x0e);
-            let size_of_table_0 = self.i16(0x30);
-            // println!("{}", size_of_table_0);
+            let signature = self.string(0x00, 0x08);
+            let version = self.i16(0x08);
+            let big_endian = self.u8(0x0c);
+            let sscf_version = self.u8(0x0d);
+            let tables_offset = self.i16(0x0e);
+            let size_of_table_0 = self.i16(tables_offset as usize);
+            let size_of_sound_entry_offset_table = self.i16((tables_offset + 0x02) as usize);
+            let header_entries = self.i16((tables_offset + 0x04) as usize);
+            let offset_table_0_offset = self.u32((tables_offset + 0x08) as usize);
+            let headers_offset = self.u32((tables_offset + 0x0c) as usize);
+            let offset_to_offset_table_2 = self.u32((tables_offset + 0x0c) as usize);
+            let entries_offset = self.u32((offset_to_offset_table_2) as usize);
+            let stream_size = self.i32((entries_offset) as usize);
+            let channels = self.i32((entries_offset + 0x4) as usize);
+            let sample_rate = self.i32((entries_offset + 0x8) as usize);
+            let codex = self.i32((entries_offset + 0xc) as usize);
+            let loop_start = self.i32((entries_offset + 0x10) as usize);
+            let loop_end = self.i32((entries_offset + 0x14) as usize);
+            let extradata_size = self.i32((entries_offset + 0x18) as usize);
+            let aux_chunk_count = self.i32((entries_offset + 0x1c) as usize);
+            let extradata_offset = self.i32((entries_offset + 0x20) as usize);
+            let frame_size = self.i16((entries_offset + 0x2c) as usize);
+            let waveformatex = self.u16((entries_offset + 0x34) as usize);
+
+            println!("{}", frame_size);
 
             self.print_column_headers();
             for hex in &self.buffer {
-                if self.parse_index > 250 {
+                if self.parse_index > 1000 {
                     break;
                 }
                 self.parse_cursor = *hex;
