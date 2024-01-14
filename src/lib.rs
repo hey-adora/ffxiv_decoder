@@ -117,12 +117,14 @@ pub mod scd_parser {
                     self.print_row.clear();
                     self.print_column_index = 0;
                     self.print_row_index += self.print_column_count;
+
+                    self.print_row.push(self.parse_cursor);
+                    self.print_column_index += 1;
                 }
 
                 self.parse_index += 1;
             }
         }
-
 
         fn read_hex(&mut self, start: usize, size: usize, color: PrintColor) -> Vec<u8> {
             let mut hex_list: Vec<u8> = Vec::new();
@@ -228,8 +230,7 @@ pub mod scd_parser {
             print!("\x1b[3{};4{}m{}\x1b", text as u8, background as u8, value);
         }
 
-
-                fn string(&mut self, start: usize, size: usize) -> String {
+        fn string(&mut self, start: usize, size: usize) -> String {
             String::from_utf8(self.read_hex(start, size, PrintColor::Green)).unwrap()
         }
 
@@ -331,6 +332,5 @@ pub mod scd_parser {
                 static_buffer[index] = item;
             }
         }
-
     }
 }
