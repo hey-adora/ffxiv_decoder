@@ -1,3 +1,4 @@
+use std::fmt::Error;
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -15,7 +16,7 @@ use crate::ffxiv::buffer_vec::BufferVec;
 #[derive(Clone)]
 pub struct AssetDatFileHeader {
     pub header_size: u32,
-    pub header_version: u32,
+    pub data_type: DataType,
     pub asset_size: u32,
     pub unknown1: u32,
     pub unknown2: u32,
@@ -43,6 +44,25 @@ pub struct AssetDatFileDataBlock {
 pub enum BlockType {
     Compressed(u32),
     Uncompressed(u32),
+}
+
+#[derive(Clone)]
+pub enum DataType {
+    Empty = 1,
+    Standard = 2,
+    Model = 3,
+    Texture = 4,
+}
+
+impl DataType {
+    pub fn new(n: u32) -> Result<DataType, String> {
+        match n {
+            1 => Ok(DataType::Empty),
+            2 => Ok(DataType::Standard),
+            3 => Ok(DataType::Texture),
+            _ => Err(format!("Data type '{}' not found.", n))
+        }
+    }
 }
 
 pub struct AssetDatFile {
@@ -170,15 +190,15 @@ impl AssetDatFileHeader {
     pub fn new(data_file: &mut BufferFile, data_file_offset: u64) -> AssetDatFileHeader {
         data_file.offset_set(data_file_offset);
         let header_size = data_file.le_u32();
-        let header_version = data_file.le_u32();
+        let data_type = data_file.le_u32();
         let asset_size = data_file.le_u32();
         let unknown1 = data_file.le_u32();
         let unknown2 = data_file.le_u32();
         let block_count = data_file.le_u32();
         let blocks = (0..block_count).map(|i| AssetDatFileHeaderBlock::from_buffer(data_file)).collect();
         AssetDatFileHeader {
+            data_type: DataType::new(data_type).unwrap(),
             header_size,
-            header_version,
             asset_size,
             unknown1,
             unknown2,
