@@ -85,6 +85,9 @@ impl BufferVec {
     read_impl!(be_u128, from_be_bytes, u128);
     read_impl!(be_i128, from_be_bytes, i128);
 
+    read_impl!(be_f32, from_be_bytes, f32);
+    read_impl!(be_f64, from_be_bytes, f64);
+
     read_impl!(le_u16, from_le_bytes, u16);
     read_impl!(le_i16, from_le_bytes, i16);
     read_impl!(le_u32, from_le_bytes, u32);
@@ -93,6 +96,9 @@ impl BufferVec {
     read_impl!(le_i64, from_le_bytes, i64);
     read_impl!(le_u128, from_le_bytes, u128);
     read_impl!(le_i128, from_le_bytes, i128);
+
+    read_impl!(le_f32, from_le_bytes, f32);
+    read_impl!(le_f64, from_le_bytes, f64);
 
     read_at_impl!(be_u16_at, from_be_bytes, u16);
     read_at_impl!(be_i16_at, from_be_bytes, i16);
@@ -103,6 +109,9 @@ impl BufferVec {
     read_at_impl!(be_u128_at, from_be_bytes, u128);
     read_at_impl!(be_i128_at, from_be_bytes, i128);
 
+    read_at_impl!(be_f32_at, from_be_bytes, f32);
+    read_at_impl!(be_f64_at, from_be_bytes, f64);
+
     read_at_impl!(le_u16_at, from_le_bytes, u16);
     read_at_impl!(le_i16_at, from_le_bytes, i16);
     read_at_impl!(le_u32_at, from_le_bytes, u32);
@@ -112,6 +121,8 @@ impl BufferVec {
     read_at_impl!(le_u128_at, from_le_bytes, u128);
     read_at_impl!(le_i128_at, from_le_bytes, i128);
 
+    read_at_impl!(le_f32_at, from_le_bytes, f32);
+    read_at_impl!(le_f64_at, from_le_bytes, f64);
 
     read_be_or_le_impl!(be_le_u16, u16);
     read_be_or_le_impl!(be_le_i16, i16);
@@ -122,6 +133,9 @@ impl BufferVec {
     read_be_or_le_impl!(be_le_i128, u128);
     read_be_or_le_impl!(be_le_u128, i128);
 
+    read_be_or_le_impl!(be_le_f32, f32);
+    read_be_or_le_impl!(be_le_f64, f64);
+
     read_be_or_le_at_impl!(be_le_u16_at, u16);
     read_be_or_le_at_impl!(be_le_i16_at, i16);
     read_be_or_le_at_impl!(be_le_u32_at, u32);
@@ -130,6 +144,9 @@ impl BufferVec {
     read_be_or_le_at_impl!(be_le_i64_at, i64);
     read_be_or_le_at_impl!(be_le_i128_at, u128);
     read_be_or_le_at_impl!(be_le_u128_at, i128);
+
+    read_be_or_le_at_impl!(be_le_f32_at, f32);
+    read_be_or_le_at_impl!(be_le_f64_at, f64);
 
     pub fn string(&mut self, size: usize) -> String {
         let output = String::from_utf8(self.slice_at(self.offset, size).to_owned()).unwrap();

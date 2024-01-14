@@ -3,6 +3,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use crate::ffxiv::buffer_file::BufferFile;
 use flate2::{Decompress, FlushDecompress};
+use crate::ffxiv::asset_exd_file::AssetEXDFile;
 use crate::ffxiv::asset_exh_file::AssetEXHFile;
 use crate::ffxiv::asset_file_path::AssetFilePath;
 use crate::ffxiv::asset_files::FFXIVAssetFiles;
@@ -92,6 +93,12 @@ impl AssetDatFile {
         let data: Vec<u8> = self.to_decompressed().concat();
         let mut data_buf = BufferVec::new(data);
         AssetEXHFile::new(&mut data_buf)
+    }
+
+    pub fn to_exd(&self, exh: &AssetEXHFile) -> AssetEXDFile {
+        let data: Vec<u8> = self.to_decompressed().concat();
+        let mut data_buf = BufferVec::new(data);
+        AssetEXDFile::new(&mut data_buf, exh)
     }
 
     pub fn save_raw(&self, path: &str) {
