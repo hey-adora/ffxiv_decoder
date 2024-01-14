@@ -1,6 +1,6 @@
-use std::fmt::{Display, Formatter};
-use crate::ffxiv::asset::exh::{EXH, EXHColumnKind};
+use crate::ffxiv::asset::exh::{EXHColumnKind, EXH};
 use crate::ffxiv::buffer::{Buffer, BufferReader};
+use std::fmt::{Display, Formatter};
 
 pub struct EXD {
     pub signature: String,
@@ -9,12 +9,12 @@ pub struct EXD {
     pub row_metadata_size: u32,
     pub row_data_size: u32,
     pub rows_metadata: Vec<AssetExdFileRowMetadata>,
-    pub rows: Vec<Vec<EXDColumn>>
+    pub rows: Vec<Vec<EXDColumn>>,
 }
 
 pub struct AssetExdFileRowMetadata {
     pub id: u32,
-    pub offset: u32
+    pub offset: u32,
 }
 
 pub enum EXDColumn {
@@ -36,18 +36,22 @@ impl Display for EXD {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut rows: String = String::new();
         for row in &self.rows {
-            let row: String = row.iter().map(|c| {
-                let value = c.to_string();
-                if value.len() > 0 {
-                    return format!("\"{}\"",value);
-                } else {
-                    return String::from("\"EMPTY\"");
-                }
-            }).collect::<Vec<String>>().join(",");
+            let row: String = row
+                .iter()
+                .map(|c| {
+                    let value = c.to_string();
+                    if value.len() > 0 {
+                        return format!("\"{}\"", value);
+                    } else {
+                        return String::from("\"EMPTY\"");
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(",");
             rows.push_str(&row);
             rows.push('\n');
         }
-        
+
         write!(f, "{}", rows)
     }
 }
@@ -65,30 +69,39 @@ impl EXD {
         buffer.offset_set(0x20);
 
         let max_file_size = (0x20 + row_metadata_size + row_data_size) as u64;
-        let row_count = row_metadata_size/8;
-        let rows_metadata: Vec<AssetExdFileRowMetadata> = (0..row_count).map(|i| AssetExdFileRowMetadata::new(buffer)).collect();
-        let rows: Vec<Vec<EXDColumn>> = rows_metadata.iter().map(|row_metadata| {
-            let mut columns: Vec<EXDColumn> = Vec::new();
-            for column in &exh.columns {
-                let data: EXDColumn;
-                let column_offset_to_offset: u64 = row_metadata.offset as u64 + column.offset_to_offset as u64 + 6;
-                if column_offset_to_offset + 4 >= max_file_size {
-                    data = EXDColumn::new_zeroed(&column.kind);
-                } else {
-                    let column_offset = buffer.be_u32_at(column_offset_to_offset);
-                    let data_row_column_offset = row_metadata.offset as u64 + exh.data_offset as u64 + 6 + column_offset as u64;
-                    let column_size = EXHColumnKind::sizes(&column.kind);
-
-                    if data_row_column_offset + column_size >= max_file_size {
+        let row_count = row_metadata_size / 8;
+        let rows_metadata: Vec<AssetExdFileRowMetadata> = (0..row_count)
+            .map(|i| AssetExdFileRowMetadata::new(buffer))
+            .collect();
+        let rows: Vec<Vec<EXDColumn>> = rows_metadata
+            .iter()
+            .map(|row_metadata| {
+                let mut columns: Vec<EXDColumn> = Vec::new();
+                for column in &exh.columns {
+                    let data: EXDColumn;
+                    let column_offset_to_offset: u64 =
+                        row_metadata.offset as u64 + column.offset_to_offset as u64 + 6;
+                    if column_offset_to_offset + 4 >= max_file_size {
                         data = EXDColumn::new_zeroed(&column.kind);
                     } else {
-                        data = EXDColumn::new_at(buffer, &column.kind, data_row_column_offset);
+                        let column_offset = buffer.be_u32_at(column_offset_to_offset);
+                        let data_row_column_offset = row_metadata.offset as u64
+                            + exh.data_offset as u64
+                            + 6
+                            + column_offset as u64;
+                        let column_size = EXHColumnKind::sizes(&column.kind);
+
+                        if data_row_column_offset + column_size >= max_file_size {
+                            data = EXDColumn::new_zeroed(&column.kind);
+                        } else {
+                            data = EXDColumn::new_at(buffer, &column.kind, data_row_column_offset);
+                        }
                     }
+                    columns.push(data);
                 }
-                columns.push(data);
-            }
-            columns
-        }).collect();
+                columns
+            })
+            .collect();
 
         EXD {
             signature,
@@ -118,7 +131,11 @@ impl AssetExdFileRowMetadata {
 }
 
 impl EXDColumn {
-    pub fn new_at<R: BufferReader>(buffer: &mut Buffer<R>, kind: &EXHColumnKind, offset: u64) -> EXDColumn {
+    pub fn new_at<R: BufferReader>(
+        buffer: &mut Buffer<R>,
+        kind: &EXHColumnKind,
+        offset: u64,
+    ) -> EXDColumn {
         match kind {
             EXHColumnKind::String => {
                 let mut string: String = String::new();
@@ -134,8 +151,7 @@ impl EXDColumn {
                     index += 1;
                 }
                 EXDColumn::String(string)
-
-            },
+            }
             EXHColumnKind::Bool => EXDColumn::Bool(buffer.u8_at(offset) == 0),
             EXHColumnKind::Int8 => EXDColumn::Int8(buffer.i8_at(offset)),
             EXHColumnKind::UInt8 => EXDColumn::UInt8(buffer.u8_at(offset)),
@@ -150,36 +166,36 @@ impl EXDColumn {
             EXHColumnKind::UNK2 => EXDColumn::UNK,
             EXHColumnKind::PackedBool0 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & 0 == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 0)) == byte)
+            }
             EXHColumnKind::PackedBool1 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 1) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 1)) == byte)
+            }
             EXHColumnKind::PackedBool2 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 2) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 2)) == byte)
+            }
             EXHColumnKind::PackedBool3 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 3) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 3)) == byte)
+            }
             EXHColumnKind::PackedBool4 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 4) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 4)) == byte)
+            }
             EXHColumnKind::PackedBool5 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 5) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 5)) == byte)
+            }
             EXHColumnKind::PackedBool6 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 6) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 6)) == byte)
+            }
             EXHColumnKind::PackedBool7 => {
                 let byte = buffer.u8_at(offset);
-                EXDColumn::Bool(byte & (1 << 7) == byte)
-            },
+                EXDColumn::Bool((byte & (1 << 7)) == byte)
+            }
         }
     }
 
@@ -215,7 +231,7 @@ impl EXDColumn {
             EXDColumn::Float32(i) => i.to_string(),
             EXDColumn::Int64(i) => i.to_string(),
             EXDColumn::UInt64(i) => i.to_string(),
-            EXDColumn::UNK => String::from("UNKNOWN")
+            EXDColumn::UNK => String::from("UNKNOWN"),
         }
     }
 }
