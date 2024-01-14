@@ -716,6 +716,7 @@ impl FFXIVAssetPathDat {
     }
     pub fn new(path: PathBuf) -> Result<FFXIVAssetPathDat, String> {
         let full_path = path.as_os_str().to_str().ok_or("Failed to convert path to str.")?.to_lowercase();
+        let path = PathBuf::from(&full_path); // use lowercase str
         let path_name = path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let path_stem = path.file_stem().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let path_extension = path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;

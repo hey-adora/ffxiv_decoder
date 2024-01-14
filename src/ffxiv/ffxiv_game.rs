@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use crate::ffxiv::ffxiv_asset::{FFXIVAssetParserDatHeaderType, FFXIVAssetParserIndex, FFXIVAssetParserIndex1Data1Item, FFXIVAssetPathDat, FFXIVAssetPathFile, FileType, StandardFile, TextureFile};
 use crate::ffxiv::ffxiv_buffer::FFXIVBuffer;
 
@@ -95,8 +96,61 @@ impl FFXIVAssetFiles {
         None
     }
 
-    pub fn get_assets_path_from_file(&self, paths_file: &str) -> HashMap<u64, FFXIVAssetPathDat> {
-        let mut path_hashes: HashMap<u64, FFXIVAssetPathDat> = HashMap::new();
+    // pub fn save_all_cvs(&self) {
+    //     let exl =  self.get_asset_from_path("exd/root.exl").unwrap().to_exl();
+    //     for (name, ukwn) in exl {
+    //         let name = name.to_lowercase();
+    //         let asset_path = &format!("exd/{}.exh", name);
+    //         let exh =  self.get_asset_from_path(asset_path);
+    //
+    //         if let Some(exh) = exh {
+    //
+    //             let exh = exh.to_exh();
+    //             let exd_lang_prefix = match &exh.languages[0] {
+    //                 AssetEXHFileLanguage::None => String::from(".exd"),
+    //                 _ => String::from("_en.exd")
+    //             };
+    //
+    //             for row in &exh.rows{
+    //                 let file_path_str = format!("./csvs/{}_{}_en.csv", name, &row.start_id);
+    //                 let file_path_buf = PathBuf::from(&file_path_str);
+    //                 let file_path_dir = file_path_buf.parent().unwrap();
+    //
+    //                 if !file_path_buf.exists() {
+    //                     let mut rows: String = exh.columns.iter().map(|c|AssetEXHFileColumnKind::names(&c.kind)).collect::<Vec<String>>().join(",");
+    //                     rows.push_str("\n\n");
+    //
+    //                     let exd_asset_path = &format!("exd/{}_{}{}", name, &row.start_id, exd_lang_prefix);
+    //                     let exd =  self.get_asset_from_path(exd_asset_path).unwrap().to_exd(&exh);
+    //
+    //                     for row in &exd.rows {
+    //                         let row: String = row.iter().map(|c| {
+    //                             let value = c.to_string();
+    //                             if value.len() > 0 {
+    //                                 return value;
+    //                             } else {
+    //                                 return String::from("EMPTY");
+    //                             }
+    //                         }).collect::<Vec<String>>().join(",");
+    //                         rows.push('\n');
+    //                         rows.push_str(&row)
+    //                     }
+    //
+    //                     create_dir_all(file_path_dir).unwrap();
+    //                     fs::write(file_path_buf, rows).unwrap();
+    //                     println!("Saved {}", file_path_str);
+    //                 } else {
+    //                     println!("Skipped: {}", asset_path)
+    //                 }
+    //             }
+    //         } else {
+    //             println!("Not found: {}", asset_path)
+    //         }
+    //     }
+    // }
+
+    pub fn get_paths(&self, paths_file: &str) -> HashMap<u64, FFXIVAssetPathDat> {
+        let path_hashes: HashMap<u64, FFXIVAssetPathDat> = HashMap::new();
 
         let mut thread_handles = vec![];
         let mut thread_count = std::thread::available_parallelism().unwrap().get();
@@ -148,7 +202,7 @@ impl FFXIVAssetFiles {
         }
 
 
-        let mut gg = Arc::try_unwrap(path_hashes_arc).unwrap().into_inner().unwrap();
+        let gg = Arc::try_unwrap(path_hashes_arc).unwrap().into_inner().unwrap();
 
         gg
     }
@@ -196,47 +250,147 @@ impl FFXIVAssetFiles {
 
     }
 
+
+
     pub fn export_all_text(&self, export_path: &str, path_names: &str) {
 
-        let dats = self.get_index1_dat_items();
-        let names = self.get_assets_path_from_file(path_names);
+        let dats_hash = self.get_index1_dat_items();
+        let names = self.get_paths(path_names);
+        // let mut dats_vec: Vec<(String, Vec<FFXIVAssetParserIndex1Data1Item>)> = Vec::new();
+        // for (dat, item) in dats_hash {
+        //     dats_vec.push((dat, item));
+        // }
+        //
 
+        //let mut thread_handles: Vec<JoinHandle<()>> = Vec::new();
 
+        // let mut thread_count = std::thread::available_parallelism().unwrap().get();
+        // if thread_count < 2 {
+        //     thread_count = 2;
+        // }
+        // let line_count = dats_hash.len();
+        // if thread_count > line_count {
+        //     thread_count = line_count;
+        // }
 
-        for (dat, items) in dats {
-            let max_index: f32 = items.len() as f32;
-            let check_every: f32 = (max_index / 100.0).floor();
+        //let dat_chunks: Vec<&[(String, Vec<FFXIVAssetParserIndex1Data1Item>)]> = dats_vec.chunks(line_count / (thread_count - 1)).collect();
+        //let data_chunks: Vec<Arc<Mutex<&[(String, Vec<FFXIVAssetParserIndex1Data1Item>)]>>> = dats_vec.chunks(line_count / (thread_count - 1)).map(|m|Arc::new(Mutex::new(m))).collect();
+        //let data_arcs: Vec<Arc<Mutex<&&[(String, Vec<FFXIVAssetParserIndex1Data1Item>)]>>> = dats_mutex.iter().map(|m|Arc::new((*m))).collect();
 
-            let mut buffer = FFXIVBuffer::from_file_path(&dat);
-            for (index, item) in items.iter().enumerate() {
-                let org_name = names.get(&item.hash);
-                let item_name: String;
-                if let Some(org_name) = org_name {
-                    if org_name.path_extension == "scd" || org_name.path_extension == "tex" || org_name.path_extension == "mdl" {
-                        continue;
+        // let names_mutex = Mutex::new(names);
+        // let names_arc = Arc::new(names_mutex);
+        //
+        // let export_mutex = Mutex::new(export_path);
+        // let export_arc = Arc::new(export_mutex);
+        //
+        // let mut org_val = 10;
+        // let val_ref = &org_val;
+        // let val_ref_mutex = Mutex::new(val_ref);
+        // let val_ref_arc = Arc::new(val_ref_mutex);
+        // let val_ref_arc_clone = Arc::clone(&val_ref_arc);
+
+        // let handle = std::thread::scope(|scope| {
+        //
+        //     val_ref =
+        // });
+        let dat_chunks: Vec<(usize, (&String, &Vec<FFXIVAssetParserIndex1Data1Item>))> = dats_hash.iter().enumerate().collect();
+        std::thread::scope(|scope| {
+            for (thread_index, (dat, items)) in dat_chunks.iter() {
+                scope.spawn(|| {
+                    let max_index: f32 = items.len() as f32;
+                    let check_every: f32 = (max_index / 100.0).floor();
+
+                    let mut buffer = FFXIVBuffer::from_file_path(*dat);
+                    for (index, item) in items.iter().enumerate() {
+                        let org_name = names.get(&item.hash);
+                        let item_name: String;
+                        if let Some(org_name) = org_name {
+                            // if org_name.path_extension == "scd" || org_name.path_extension == "tex" || org_name.path_extension == "mdl" {
+                            //     continue;
+                            // }
+                            item_name = format!("{}_{}", item.hash.to_string(), org_name.path_name.clone());
+                        } else {
+                            item_name = item.hash.to_string();
+                        }
+                        let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
+
+                        if !new_item_path.exists() {
+                            let header_type = FFXIVAssetParserDatHeaderType::check_at(&mut buffer, item.data_file_offset).unwrap();
+                            if let FFXIVAssetParserDatHeaderType::Standard = header_type {
+                                let file = StandardFile::new(&mut buffer, item.data_file_offset);
+                                let data = file.decompress();
+                                fs::write(new_item_path, data).unwrap();
+                            }
+                        }
+
+                        let index = index as f32;
+                        if index % check_every == 0.0 {
+                            let done = (index / max_index) * 100.0;
+                            println!("THREAD {}: Exporting {}: {}%.\n", *thread_index, *dat, done);
+                        }
                     }
-                    item_name = org_name.path_name.clone();
-                } else {
-                    item_name = item.hash.to_string();
-                }
-                let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
-
-                if !new_item_path.exists() {
-                    let header_type = FFXIVAssetParserDatHeaderType::check_at(&mut buffer, item.data_file_offset).unwrap();
-                    if let FFXIVAssetParserDatHeaderType::Standard = header_type {
-                        let file = StandardFile::new(&mut buffer, item.data_file_offset);
-                        let data = file.decompress();
-                        fs::write(new_item_path, data).unwrap();
-                    }
-                }
-
-                let index = index as f32;
-                if index % check_every == 0.0 {
-                    let done = (index / max_index) * 100.0;
-                    println!("Exporting {}: {}%.\n", &dat, done);
-                }
+                });
             }
-        }
+        });
+
+
+        // for (thread_index, arc) in data_chunks.iter().enumerate() {
+        //
+        //     //let names = names.clone();
+        //     //let export_path = export_path.to_owned();
+        //     //let ur_chunk: Vec<(String, Vec<FFXIVAssetParserIndex1Data1Item>)> = chunk.to_vec().iter().map(|p| (*p).to_owned()).collect();
+        //
+        //     let names = Arc::clone(&names_arc);
+        //     let export_path = export_path.to_owned();
+        //     let chunk_arc = arc.clone();
+        //
+        //     let handle = std::thread::spawn( move || {
+        //         let chunk = chunk_arc.lock().unwrap();
+        //         let nameeee = names.lock().unwrap();
+        //         // for (dat, items) in chunk.iter() {
+        //         //     let max_index: f32 = items.len() as f32;
+        //         //     let check_every: f32 = (max_index / 100.0).floor();
+        //         //
+        //         //     let mut buffer = FFXIVBuffer::from_file_path(&dat);
+        //         //     for (index, item) in items.iter().enumerate() {
+        //         //         let name = names.lock().unwrap();
+        //         //         let org_name = name.get(&item.hash).to_owned();
+        //         //         let item_name: String;
+        //         //         if let Some(org_name) = org_name {
+        //         //             if org_name.path_extension == "scd" || org_name.path_extension == "tex" || org_name.path_extension == "mdl" {
+        //         //                 continue;
+        //         //             }
+        //         //             item_name = format!("{}_{}", item.hash.to_string(), org_name.path_name.clone());
+        //         //         } else {
+        //         //             item_name = item.hash.to_string();
+        //         //         }
+        //         //         let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
+        //         //
+        //         //         if !new_item_path.exists() {
+        //         //             let header_type = FFXIVAssetParserDatHeaderType::check_at(&mut buffer, item.data_file_offset).unwrap();
+        //         //             if let FFXIVAssetParserDatHeaderType::Standard = header_type {
+        //         //                 let file = StandardFile::new(&mut buffer, item.data_file_offset);
+        //         //                 let data = file.decompress();
+        //         //                 fs::write(new_item_path, data).unwrap();
+        //         //             }
+        //         //         }
+        //         //
+        //         //         let index = index as f32;
+        //         //         if index % check_every == 0.0 {
+        //         //             let done = (index / max_index) * 100.0;
+        //         //             println!("THREAD {}: Exporting {}: {}%.\n", thread_index, &dat, done);
+        //         //         }
+        //         //     }
+        //         // }
+        //     });
+        //     thread_handles.push(handle);
+        // }
+
+        // for thread_handle in thread_handles {
+        //     thread_handle.join().unwrap();
+        // }
+
+
     }
 
     // pub fn export_all_text(&self, paths_file: &str) {
