@@ -1,11 +1,24 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{hint, thread};
+use std::fs::{create_dir_all, File};
+use std::io::Write;
 use std::ops::Deref;
-use game_data_resolver::ffxiv::{FFXIV, test, test2};
+use std::path::PathBuf;
+use game_data_resolver::ffxiv::{FFXIV, test};
 
 fn main() {
+    //let path = PathBuf::from("./test/test2/test.txt");
+    //println!("{}", path.parent().unwrap().to_str().unwrap());
+    //create_dir_all("./test/test2/test.txt").unwrap();
+
+    // let mut file = File::create("./dude.txt").unwrap();
+    // for i in 0..100u8 {
+    //     file.write(&[i]).unwrap();
+    // }
+
     test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "music/ffxiv/BGM_PvP_Battle_02.scd");
+
     //test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "sound/vfx/monster/se_vfx_monster_reming_revolvekick.scd");
     //test2("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
 

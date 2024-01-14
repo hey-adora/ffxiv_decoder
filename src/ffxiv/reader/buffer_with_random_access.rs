@@ -187,7 +187,7 @@ impl BufferWithRandomAccess {
     }
 
     pub fn read_at(&mut self, at: usize ,buffer: &mut [u8]) -> usize {
-        let read_bytes = self.file_handle.read_at((self.offset + at) as u64, buffer).unwrap();
+        let read_bytes = self.file_handle.read_at(at as u64, buffer).unwrap();
         read_bytes
     }
 }

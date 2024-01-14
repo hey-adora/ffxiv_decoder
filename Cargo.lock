@@ -619,6 +619,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloudflare-zlib-sys"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2040b6d1edfee6d75f172d81e2d2a7807534f3f294ce18184c70e7bb0105cd6f"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1148,6 +1157,19 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
+dependencies = [
+ "atty",
+ "humantime",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
@@ -1277,6 +1299,7 @@ version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b9429470923de8e8cbd4d2dc513535400b4b3fef0319fb5c4e1f520a7bef743"
 dependencies = [
+ "cloudflare-zlib-sys",
  "crc32fast",
  "miniz_oxide 0.7.1",
 ]
@@ -1525,7 +1548,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_extras",
- "env_logger",
+ "env_logger 0.10.0",
  "flate2",
  "funty",
  "hot-lib-reloader",
@@ -1535,6 +1558,7 @@ dependencies = [
  "once_cell",
  "positioned-io",
  "regex",
+ "zlib_stream",
 ]
 
 [[package]]
@@ -4529,6 +4553,19 @@ dependencies = [
  "serde",
  "static_assertions",
  "zvariant",
+]
+
+[[package]]
+name = "zlib_stream"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3be397110ce38f156f6409fa012583529d54892979850f5ade19fcd57884aede"
+dependencies = [
+ "env_logger 0.9.3",
+ "flate2",
+ "futures-util",
+ "log",
+ "thiserror",
 ]
 
 [[package]]
