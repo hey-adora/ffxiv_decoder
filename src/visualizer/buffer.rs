@@ -14,7 +14,7 @@ pub fn print(buffer: &Buffer) {
     for (index, byte) in buffer.bytes.iter().enumerate() {
         if index != 0 && index % COLUMN_COUNT == 0 {
             print_color(" ", PrintColor::Default, PrintColor::Default);
-            print_ascii(index, &buffer); 
+            print_ascii(index, &buffer);
             print_color(format!("\n{:06x}   ", index / COLUMN_COUNT).as_str(), PrintColor::Red, PrintColor::Default);
         }
         print_color_picker(index, buffer.read_history.get(&index), &mut print_color_landmark);
