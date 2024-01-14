@@ -1,8 +1,29 @@
 use positioned_io::{RandomAccessFile, ReadAt};
+use std::mem;
 
 pub struct BufferFile {
     file_handle: RandomAccessFile,
-    offset: usize,
+    offset: u64,
+}
+
+macro_rules! read_impl {
+    ($name: ident, $from_fn: ident, $t: ty) => {
+        pub fn $name(&mut self) -> $t {
+            let mut buffer: [u8; mem::size_of::<$t>()] = [0; mem::size_of::<$t>()];
+            self.read(&mut buffer);
+            <$t>::$from_fn(buffer)
+        }
+    }
+}
+
+macro_rules! read_at_impl {
+    ($name: ident, $from_fn: ident, $t: ty) => {
+        pub fn $name(&mut self, at: u64) -> $t {
+            let mut buffer: [u8; mem::size_of::<$t>()] = [0; mem::size_of::<$t>()];
+            self.read_at(&mut buffer, at);
+            <$t>::$from_fn(buffer)
+        }
+    }
 }
 
 impl BufferFile {
@@ -23,245 +44,35 @@ impl BufferFile {
     }
 
 
-    pub fn be_u8(&mut self) -> u8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read(&mut buffer);
-        u8::from_be_bytes(buffer)
-    }
+    read_impl!(u8, from_be_bytes, u8);
+    read_impl!(i8, from_be_bytes, u8);
 
-    pub fn be_i8(&mut self) -> i8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read(&mut buffer);
-        i8::from_be_bytes(buffer)
-    }
+    read_impl!(be_u16, from_be_bytes, u16);
+    read_impl!(be_i16, from_be_bytes, i16);
+    read_impl!(be_u32, from_be_bytes, u32);
+    read_impl!(be_i32, from_be_bytes, i32);
+    read_impl!(be_u64, from_be_bytes, u64);
+    read_impl!(be_i64, from_be_bytes, i64);
+    read_impl!(be_u128, from_be_bytes, u128);
+    read_impl!(be_i128, from_be_bytes, i128);
 
-    pub fn be_u16(&mut self) -> u16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read(&mut buffer);
-        u16::from_be_bytes(buffer)
-    }
+    read_impl!(le_u16, from_le_bytes, u16);
+    read_impl!(le_i16, from_le_bytes, i16);
+    read_impl!(le_u32, from_le_bytes, u32);
+    read_impl!(le_i32, from_le_bytes, i32);
+    read_impl!(le_u64, from_le_bytes, u64);
+    read_impl!(le_i64, from_le_bytes, i64);
+    read_impl!(le_u128, from_le_bytes, u128);
+    read_impl!(le_i128, from_le_bytes, i128);
 
-    pub fn be_i16(&mut self) -> i16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read(&mut buffer);
-        i16::from_be_bytes(buffer)
-    }
-
-    pub fn be_i32(&mut self) -> i32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read(&mut buffer);
-        i32::from_be_bytes(buffer)
-    }
-
-    pub fn be_u32(&mut self) -> u32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read(&mut buffer);
-        u32::from_be_bytes(buffer)
-    }
-
-    pub fn be_u64(&mut self) -> u64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read(&mut buffer);
-        u64::from_be_bytes(buffer)
-    }
-
-    pub fn be_i64(&mut self) -> i64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read(&mut buffer);
-        i64::from_be_bytes(buffer)
-    }
-
-    pub fn be_u128(&mut self) -> u128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read(&mut buffer);
-        u128::from_be_bytes(buffer)
-    }
-
-    pub fn be_i128(&mut self) -> i128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read(&mut buffer);
-        i128::from_be_bytes(buffer)
-    }
-
-    pub fn be_u8_at(&mut self, at: usize) -> u8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read_at(at, &mut buffer);
-        u8::from_be_bytes(buffer)
-    }
-
-    pub fn be_i8_at(&mut self, at: usize) -> i8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read_at(at, &mut buffer);
-        i8::from_be_bytes(buffer)
-    }
-
-    pub fn be_u16_at(&mut self, at: usize) -> u16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read_at(at, &mut buffer);
-        u16::from_be_bytes(buffer)
-    }
-
-    pub fn be_i16_at(&mut self, at: usize) -> i16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read_at(at, &mut buffer);
-        i16::from_be_bytes(buffer)
-    }
-
-    pub fn be_i32_at(&mut self, at: usize) -> i32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read_at(at, &mut buffer);
-        i32::from_be_bytes(buffer)
-    }
-
-    pub fn be_u32_at(&mut self, at: usize) -> u32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read_at(at, &mut buffer);
-        u32::from_be_bytes(buffer)
-    }
-
-    pub fn be_u64_at(&mut self, at: usize) -> u64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read_at(at, &mut buffer);
-        u64::from_be_bytes(buffer)
-    }
-
-    pub fn be_i64_at(&mut self, at: usize) -> i64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read_at(at, &mut buffer);
-        i64::from_be_bytes(buffer)
-    }
-
-    pub fn be_u128_at(&mut self, at: usize) -> u128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read_at(at, &mut buffer);
-        u128::from_be_bytes(buffer)
-    }
-
-    pub fn be_i128_at(&mut self, at: usize) -> i128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read_at(at, &mut buffer);
-        i128::from_be_bytes(buffer)
-    }
-
-    pub fn le_u8(&mut self) -> u8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read(&mut buffer);
-        u8::from_le_bytes(buffer)
-    }
-
-    pub fn le_i8(&mut self) -> i8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read(&mut buffer);
-        i8::from_le_bytes(buffer)
-    }
-
-    pub fn le_u16(&mut self) -> u16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read(&mut buffer);
-        u16::from_le_bytes(buffer)
-    }
-
-    pub fn le_i16(&mut self) -> i16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read(&mut buffer);
-        i16::from_le_bytes(buffer)
-    }
-
-    pub fn le_i32(&mut self) -> i32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read(&mut buffer);
-        i32::from_le_bytes(buffer)
-    }
-
-    pub fn le_u32(&mut self) -> u32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read(&mut buffer);
-        u32::from_le_bytes(buffer)
-    }
-
-    pub fn le_u64(&mut self) -> u64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read(&mut buffer);
-        u64::from_le_bytes(buffer)
-    }
-
-    pub fn le_i64(&mut self) -> i64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read(&mut buffer);
-        i64::from_le_bytes(buffer)
-    }
-
-    pub fn le_u128(&mut self) -> u128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read(&mut buffer);
-        u128::from_le_bytes(buffer)
-    }
-
-    pub fn le_i128(&mut self) -> i128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read(&mut buffer);
-        i128::from_le_bytes(buffer)
-    }
-
-    pub fn le_u8_at(&mut self, at: usize) -> u8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read_at(at, &mut buffer);
-        u8::from_le_bytes(buffer)
-    }
-
-    pub fn le_i8_at(&mut self, at: usize) -> i8 {
-        let mut buffer: [u8; 1] = [0; 1];
-        self.read_at(at, &mut buffer);
-        i8::from_le_bytes(buffer)
-    }
-
-    pub fn le_u16_at(&mut self, at: usize) -> u16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read_at(at, &mut buffer);
-        u16::from_le_bytes(buffer)
-    }
-
-    pub fn le_i16_at(&mut self, at: usize) -> i16 {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.read_at(at, &mut buffer);
-        i16::from_le_bytes(buffer)
-    }
-
-    pub fn le_i32_at(&mut self, at: usize) -> i32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read_at(at, &mut buffer);
-        i32::from_le_bytes(buffer)
-    }
-
-    pub fn le_u32_at(&mut self, at: usize) -> u32 {
-        let mut buffer: [u8; 4] = [0; 4];
-        self.read_at(at, &mut buffer);
-        u32::from_le_bytes(buffer)
-    }
-
-    pub fn le_u64_at(&mut self, at: usize) -> u64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read_at(at, &mut buffer);
-        u64::from_le_bytes(buffer)
-    }
-
-    pub fn le_i64_at(&mut self, at: usize) -> i64 {
-        let mut buffer: [u8; 8] = [0; 8];
-        self.read_at(at, &mut buffer);
-        i64::from_le_bytes(buffer)
-    }
-
-    pub fn le_u128_at(&mut self, at: usize) -> u128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read_at(at, &mut buffer);
-        u128::from_le_bytes(buffer)
-    }
-
-    pub fn le_i128_at(&mut self, at: usize) -> i128 {
-        let mut buffer: [u8; 16] = [0; 16];
-        self.read_at(at, &mut buffer);
-        i128::from_le_bytes(buffer)
-    }
+    read_at_impl!(be_u16_at, from_be_bytes, u16);
+    read_at_impl!(be_i16_at, from_be_bytes, i16);
+    read_at_impl!(be_u32_at, from_be_bytes, u32);
+    read_at_impl!(be_i32_at, from_be_bytes, i32);
+    read_at_impl!(be_u64_at, from_be_bytes, u64);
+    read_at_impl!(be_i64_at, from_be_bytes, i64);
+    read_at_impl!(be_u128_at, from_be_bytes, u128);
+    read_at_impl!(be_i128_at, from_be_bytes, i128);
 
     pub fn string(&mut self, size: usize) -> String {
         let mut buffer: Vec<u8> = vec![0; size];
@@ -269,9 +80,9 @@ impl BufferFile {
         String::from_utf8(buffer).unwrap()
     }
 
-    pub fn string_at(&mut self, at: usize, size: usize) -> String {
+    pub fn string_at(&mut self, at: u64, size: usize) -> String {
         let mut buffer: Vec<u8> = vec![0; size];
-        self.read_at(at, &mut buffer);
+        self.read_at(&mut buffer, at);
         String::from_utf8(buffer).unwrap()
     }
 
@@ -281,30 +92,28 @@ impl BufferFile {
         buffer
     }
 
-    pub fn vec_at(&mut self, at: usize, size: usize) -> Vec<u8> {
+    pub fn vec_at(&mut self, at: u64, size: usize) -> Vec<u8> {
         let mut buffer: Vec<u8> = vec![0; size];
-        self.read_at(at, &mut buffer);
+        self.read_at(&mut buffer, at);
         buffer
     }
 
-    pub fn offset_set(&mut self, offset: usize) -> usize {
+    pub fn offset_set(&mut self, offset: u64) -> u64 {
         self.offset = offset;
         self.offset
     }
 
-    pub fn offset_add(&mut self, offset: usize) -> usize {
+    pub fn offset_add(&mut self, offset: u64) -> u64 {
         self.offset += offset;
         self.offset
     }
 
-    pub fn read(&mut self, buffer: &mut [u8]) -> usize {
-        let read_bytes = self.file_handle.read_at(self.offset as u64, buffer).unwrap();
-        self.offset += buffer.len();
-        read_bytes
+    pub fn read(&mut self, buffer: &mut [u8]) {
+        self.file_handle.read_at(self.offset, buffer).unwrap();
+        self.offset += buffer.len() as u64;
     }
 
-    pub fn read_at(&mut self, at: usize, buffer: &mut [u8]) -> usize {
-        let read_bytes = self.file_handle.read_at(at as u64, buffer).unwrap();
-        read_bytes
+    pub fn read_at(&mut self, buffer: &mut [u8], at: u64) {
+        self.file_handle.read_at(at, buffer).unwrap();
     }
 }

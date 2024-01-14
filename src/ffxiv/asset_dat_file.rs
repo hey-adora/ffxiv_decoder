@@ -80,7 +80,7 @@ impl BlockType {
 
 impl AssetDatFileHeader {
     pub fn new(data_file: &mut BufferFile, data_file_offset: u64) -> AssetDatFileHeader {
-        data_file.offset_set(data_file_offset as usize);
+        data_file.offset_set(data_file_offset);
         let header_size = data_file.le_u32();
         let header_version = data_file.le_u32();
         let asset_size = data_file.le_u32();
@@ -113,12 +113,12 @@ impl AssetDatFileHeaderBlock {
 impl AssetDatFileDataBlock {
     pub fn new(data_file: &mut BufferFile, data_file_offset: u64, asset_dat_file_header: &AssetDatFileHeader, block_metadata: &AssetDatFileHeaderBlock) -> AssetDatFileDataBlock {
         let block_offset = data_file_offset + (asset_dat_file_header.header_size + block_metadata.offset) as u64;
-        data_file.offset_set(block_offset as usize);
+        data_file.offset_set(block_offset);
         let header_size = data_file.le_u32();
         let header_version = data_file.le_u32();
         let block_type = BlockType::new(data_file.le_u32());
         let uncompressed_block_size = data_file.le_u32();
-        let block_data_offset = (block_offset + header_size as u64) as usize;
+        let block_data_offset = (block_offset + header_size as u64);
         let data = match block_type {
             BlockType::Compressed(n) => data_file.vec_at(block_data_offset, n as usize),
             BlockType::Uncompressed(n) => data_file.vec_at(block_data_offset, uncompressed_block_size as usize)
@@ -133,7 +133,7 @@ impl AssetDatFileDataBlock {
         }
     }
     pub fn from_header(data_file: &mut BufferFile, asset_dat_file_header: &AssetDatFileHeader, data_file_offset: u64) -> Vec<AssetDatFileDataBlock> {
-        data_file.offset_set((data_file_offset + asset_dat_file_header.header_size as u64) as usize);
+        data_file.offset_set(data_file_offset + asset_dat_file_header.header_size as u64);
         asset_dat_file_header.blocks.iter().map(|block_metadata| AssetDatFileDataBlock::new(data_file, data_file_offset, asset_dat_file_header, block_metadata)).collect()
     }
 }
