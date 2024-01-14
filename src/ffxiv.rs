@@ -22,6 +22,7 @@ pub mod asset_dat_file;
 pub mod asset;
 pub mod game;
 pub mod save_file;
+pub mod asset_exh_file;
 
 pub struct FFXIV {
     game_path: String,

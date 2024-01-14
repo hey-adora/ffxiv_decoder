@@ -49,7 +49,7 @@ trait AssetIndexFileParser<T> {
     fn parse_header(buffer: &mut BufferVec) -> AssetIndexFile<T> {
         buffer.offset = 0;
 
-        let file_signature = buffer.string(0x00, 0x08);
+        let file_signature = buffer.string_at(0x00, 0x08);
         let file_platform = AssetFilePlatform::from_u32(buffer.u8_at(0x08) as u32).unwrap();
         let file_header_offset = buffer.le_u32_at(0x0C);
         let file_version = buffer.le_u32_at(0x10);

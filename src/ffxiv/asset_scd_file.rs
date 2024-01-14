@@ -33,7 +33,7 @@ impl AssetSCDFile {
     pub fn new(buffer: &mut BufferVec) -> AssetSCDFile {
         buffer.offset = 0;
 
-        let signature = buffer.string(0x00, 0x08);
+        let signature = buffer.string_at(0x00, 0x08);
         let big_endian = buffer.u8_at(0x0c);
         let sscf_version = buffer.u8_at(0x0d);
         let is_big_endian = big_endian == 1;

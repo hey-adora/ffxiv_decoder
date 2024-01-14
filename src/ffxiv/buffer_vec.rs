@@ -131,7 +131,13 @@ impl BufferVec {
     read_be_or_le_at_impl!(be_le_i128_at, u128);
     read_be_or_le_at_impl!(be_le_u128_at, i128);
 
-    pub fn string(&mut self, start: usize, size: usize) -> String {
+    pub fn string(&mut self, size: usize) -> String {
+        let output = String::from_utf8(self.slice_at(self.offset, size).to_owned()).unwrap();
+        self.offset += size;
+        output
+    }
+
+    pub fn string_at(&mut self, start: usize, size: usize) -> String {
         String::from_utf8(self.slice_at(start, size).to_owned()).unwrap()
     }
 
@@ -167,6 +173,10 @@ impl BufferVec {
     pub fn offset_add(&mut self, offset: usize) -> usize {
         self.offset += offset;
         self.offset
+    }
+
+    pub fn offset_skip(&mut self, offset: usize) {
+        self.offset += offset;
     }
 
 }
