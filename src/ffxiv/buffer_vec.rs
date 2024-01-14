@@ -25,7 +25,7 @@ macro_rules! read_at_impl {
 macro_rules! read_be_or_le_impl {
     ($name: tt, $t: ty) => {
         pub fn $name(&mut self, is_be: bool) -> $t {
-            let mut output = 0;
+            let output;
             if is_be {
                 output = <$t>::from_be_bytes(self.slice_at(self.offset, mem::size_of::<$t>()).try_into().unwrap());
             } else {

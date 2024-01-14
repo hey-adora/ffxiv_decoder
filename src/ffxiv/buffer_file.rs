@@ -1,5 +1,6 @@
 use positioned_io::{RandomAccessFile, ReadAt, ReadBytesAtExt};
 use std::mem;
+use std::path::Path;
 
 macro_rules! read_impl {
     ($name: ident, $from_fn: ident, $t: ty) => {
@@ -63,8 +64,8 @@ impl BufferFile {
         }
     }
 
-    pub fn from_file_path(file_path: &str) -> BufferFile {
-        let file_handle = RandomAccessFile::open(&file_path).unwrap();
+    pub fn from_file_path<P: AsRef<Path>>(file_path: P) -> BufferFile {
+        let file_handle = RandomAccessFile::open(file_path).unwrap();
         BufferFile {
             file_handle,
             offset: 0,

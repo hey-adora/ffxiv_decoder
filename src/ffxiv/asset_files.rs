@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::ffxiv::asset_file_path::AssetFilePath;
+use crate::ffxiv::asset_path::AssetPath;
 
 pub struct FFXIVAssetFiles {
     pub dat_files: Vec<AssetFilePath>,
@@ -9,11 +10,10 @@ pub struct FFXIVAssetFiles {
 }
 
 impl FFXIVAssetFiles {
+
     pub fn new(game_path: &str) -> Result<Vec<FFXIVAssetFiles>, String> {
         let mut file_paths: Vec<PathBuf> = Vec::new();
         FFXIVAssetFiles::get_files(game_path, &mut file_paths);
-
-        let debug: Vec<&str> = file_paths.iter().map(|f| { f.to_str().unwrap() }).collect();
 
         let mut dat_files: Vec<AssetFilePath> = Vec::new();
         let mut index_files: Vec<AssetFilePath> = Vec::new();
@@ -32,6 +32,13 @@ impl FFXIVAssetFiles {
             }
         }
 
+
+        let grouped_files = FFXIVAssetFiles::group_files(dat_files, index_files, index2_files);
+
+        Ok(grouped_files)
+    }
+
+    fn group_files(dat_files: Vec<AssetFilePath>, index_files: Vec<AssetFilePath>, index2_files: Vec<AssetFilePath>) -> Vec<FFXIVAssetFiles> {
         let mut file_groups: Vec<FFXIVAssetFiles> = Vec::new();
 
         for index_file in index_files {
@@ -51,9 +58,7 @@ impl FFXIVAssetFiles {
                 })
             }
         }
-
-
-        Ok(file_groups)
+        file_groups
     }
 
     fn get_files(input_path: &str, output: &mut Vec<PathBuf>) {

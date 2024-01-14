@@ -1,5 +1,5 @@
 use std::fmt::Error;
-use std::io;
+use std::{fs, io};
 use std::path::{Path, PathBuf};
 use crc::{Crc, CRC_32_JAMCRC, Digest};
 use crate::ffxiv::buffer_vec::BufferVec;
@@ -45,6 +45,7 @@ pub struct AssetIndexFile<T> {
 }
 
 trait AssetIndexFileParser<T> {
+
     fn parse_header(buffer: &mut BufferVec) -> AssetIndexFile<T> {
         buffer.offset = 0;
 
@@ -114,10 +115,24 @@ impl AssetIndexFileParser<Index2Data1Item> for AssetIndexFile<Index2Data1Item> {
 }
 
 impl AssetIndexFile<Index1Data1Item> {
+    pub fn from_index1_file<P: AsRef<Path>>(file_path: P) -> AssetIndexFile<Index1Data1Item> {
+        let index1_file = fs::read(file_path).unwrap();
+        let mut index1_file_buf = BufferVec::new(index1_file);
+        AssetIndexFile::from_index1(&mut index1_file_buf)
+    }
+
     pub fn from_index1(buffer: &mut BufferVec) -> AssetIndexFile<Index1Data1Item> {
         let mut index = AssetIndexFile::parse_header(buffer);
         AssetIndexFile::parse_index1_data(buffer, &mut index.data1, index.header_data_offset as usize, index.header_data_size as usize);
         index
+    }
+
+    pub fn contains(&self, hash: u64) -> bool {
+        self.data1.iter().position(|item| item.hash == hash) == None
+    }
+
+    pub fn find(&self, hash: u64) -> Option<&Index1Data1Item> {
+        self.data1.iter().find(|item| item.hash == hash)
     }
 
     fn parse_index1_data(buffer: &mut BufferVec, output: &mut Vec<Index1Data1Item>, header_data_offset: usize, header_data_size: usize) {
@@ -135,9 +150,17 @@ impl AssetIndexFile<Index1Data1Item> {
             })
         };
     }
+
+
 }
 
 impl AssetIndexFile<Index2Data1Item> {
+    pub fn from_index2_file(file_path: &str) -> AssetIndexFile<Index2Data1Item> {
+        let index2_file = fs::read(file_path).unwrap();
+        let mut index2_file_buf = BufferVec::new(index2_file);
+        AssetIndexFile::from_index2(&mut index2_file_buf)
+    }
+
     pub fn from_index2(buffer: &mut BufferVec) -> AssetIndexFile<Index2Data1Item> {
         let mut index = AssetIndexFile::parse_header(buffer);
         AssetIndexFile::parse_index2_data(buffer, &mut index.data1, index.header_data_offset as usize, index.header_data_size as usize);

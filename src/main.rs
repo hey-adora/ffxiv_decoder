@@ -1,6 +1,7 @@
-use game_data_resolver::ffxiv::test;
+use game_data_resolver::ffxiv::FFXIV;
 
 fn main() {
-    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "exd/action.exh");
-    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "exd/action_0_en.exd");
+    let ffxiv = FFXIV::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
+    ffxiv.get_asset_from_path("exd/action.exh").unwrap().save_decompressed("./media/1.exh");
+    ffxiv.get_asset_from_path("exd/action_0_en.exd").unwrap().save_decompressed("./media/2.exh");
 }

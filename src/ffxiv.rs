@@ -23,34 +23,45 @@ pub mod asset;
 pub mod game;
 pub mod save_file;
 
-pub fn test(game_path: &str, index_path: &str) {
-    let parsed_index_path = AssetPath::from_str(index_path).unwrap();
+pub struct FFXIV {
+    game_path: String,
+    asset_files: Vec<FFXIVAssetFiles>,
+}
 
-    let mut possible_asset_files: Vec<FFXIVAssetFiles> = Vec::new();
-
-    let asset_files: Vec<FFXIVAssetFiles> = FFXIVAssetFiles::new(game_path).unwrap();
-
-    for asset_file in asset_files {
-        if asset_file.index_file.data_category.id == parsed_index_path.data_category.id &&
-            asset_file.index_file.data_repository.id == parsed_index_path.data_repo.id {
-            possible_asset_files.push(asset_file);
+impl FFXIV {
+    pub fn new(game_path: &str) -> FFXIV {
+        let asset_files: Vec<FFXIVAssetFiles> = FFXIVAssetFiles::new(game_path).unwrap();
+        FFXIV {
+            asset_files,
+            game_path: String::from(game_path)
         }
     }
 
+    pub fn get_asset_from_path(&self, asset_path: &str) -> Option<AssetDatFile> {
+        let asset_path = AssetPath::from_str(asset_path).unwrap();
+        let possible_asset_files = self.find_asset_files_by_asset_path(&asset_path);
 
-    for possible_asset_file in possible_asset_files {
-        let index1_file_handle = fs::read(possible_asset_file.index_file.file_path).unwrap();
-        let mut index1_file = BufferVec::new(index1_file_handle);
-        let parsed_index1 = AssetIndexFile::from_index1(&mut index1_file);
-        let index1_item = parsed_index1.data1.iter().find(|item| item.hash == parsed_index_path.index1_hash);
-        if let Some(item) = index1_item {
-            let data_item = possible_asset_file.dat_files.iter().find(|d| d.data_chunk.id == item.data_file_id).ok_or("Data file could not be found.").unwrap();
-            let data_item_path = data_item.file_path.as_os_str().to_str().unwrap();
-            let mut data_file = BufferFile::from_file_path(data_item_path);
+        for possible_asset_file in possible_asset_files {
+            let index_asset = AssetIndexFile::from_index1_file(&possible_asset_file.index_file.file_path);
+            if let Some(item) = index_asset.find(asset_path.index1_hash) {
+                let dat_file = AssetDatFile::from_dat_files(&possible_asset_file.dat_files, item.data_file_id, item.data_file_offset);
+                return Some(dat_file);
+            }
+        };
 
-            let asset_dat_file = AssetDatFile::new(&mut data_file, item.data_file_offset);
-            let save_file = SaveFilePath::from_index_path(&parsed_index_path);
-            save_file.write_blocks(asset_dat_file.to_decompressed());
+        None
+    }
+
+    pub fn find_asset_files_by_asset_path(&self, asset_path: &AssetPath) -> Vec<&FFXIVAssetFiles>{
+        let mut possible_asset_files: Vec<&FFXIVAssetFiles> = Vec::new();
+
+        for asset_file in &self.asset_files {
+            if asset_file.index_file.data_category.id == asset_path.data_category.id &&
+                asset_file.index_file.data_repository.id == asset_path.data_repo.id {
+                possible_asset_files.push(asset_file.clone());
+            }
         }
+
+        possible_asset_files
     }
 }
