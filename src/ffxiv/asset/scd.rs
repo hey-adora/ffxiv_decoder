@@ -43,11 +43,15 @@ impl AssetSCDFile {
         let file_size = buffer.be_le_u16_at(0x10, is_big_endian);
 
         let table_size = buffer.be_le_u16_at(offset_to_table as u64, is_big_endian);
-        let table_size_of_sound_entry_offset = buffer.be_le_i16_at((offset_to_table + 0x02) as u64, is_big_endian);
-        let table_header_entries = buffer.be_le_i16_at((offset_to_table + 0x04) as u64, is_big_endian);
+        let table_size_of_sound_entry_offset =
+            buffer.be_le_i16_at((offset_to_table + 0x02) as u64, is_big_endian);
+        let table_header_entries =
+            buffer.be_le_i16_at((offset_to_table + 0x04) as u64, is_big_endian);
         let table_offset = buffer.be_le_u32_at((offset_to_table + 0x08) as u64, is_big_endian);
-        let table_entry_to_offset = buffer.be_le_u32_at((offset_to_table + 0x0c) as u64, is_big_endian);
-        let table_offset_to_table_2 = buffer.be_le_u32_at((offset_to_table + 0x0c) as u64, is_big_endian);
+        let table_entry_to_offset =
+            buffer.be_le_u32_at((offset_to_table + 0x0c) as u64, is_big_endian);
+        let table_offset_to_table_2 =
+            buffer.be_le_u32_at((offset_to_table + 0x0c) as u64, is_big_endian);
 
         let entry_offset = buffer.be_le_u32_at((table_entry_to_offset) as u64, is_big_endian);
 
@@ -57,9 +61,12 @@ impl AssetSCDFile {
         let entry_codex = buffer.be_le_i32_at((entry_offset + 0xc) as u64, is_big_endian);
         let entry_loop_start = buffer.be_le_i32_at((entry_offset + 0x10) as u64, is_big_endian);
         let entry_loop_end = buffer.be_le_i32_at((entry_offset + 0x14) as u64, is_big_endian);
-        let entry_extra_data_size = buffer.be_le_i32_at((entry_offset + 0x18) as u64, is_big_endian);
-        let entry_aux_chunk_count = buffer.be_le_i32_at((entry_offset + 0x1c) as u64, is_big_endian);
-        let entry_extra_data_offset = buffer.be_le_i32_at((entry_offset + 0x20) as u64, is_big_endian);
+        let entry_extra_data_size =
+            buffer.be_le_i32_at((entry_offset + 0x18) as u64, is_big_endian);
+        let entry_aux_chunk_count =
+            buffer.be_le_i32_at((entry_offset + 0x1c) as u64, is_big_endian);
+        let entry_extra_data_offset =
+            buffer.be_le_i32_at((entry_offset + 0x20) as u64, is_big_endian);
         let entry_frame_size = buffer.be_le_i16_at((entry_offset + 0x2c) as u64, is_big_endian);
         let entry_wave_format_ex = buffer.be_le_u16_at((entry_offset + 0x34) as u64, is_big_endian);
 
@@ -97,4 +104,10 @@ impl AssetSCDFile {
             audio_offset,
         }
     }
+
+    pub fn from_vec(vec: Vec<u8>) -> AssetSCDFile {
+        let mut buffer = Buffer::from_vec(vec);
+        AssetSCDFile::new(&mut buffer)
+    }
 }
+

@@ -77,7 +77,7 @@ impl DatPath {
                 &full_path
             )))?;
         let path_name = &full_path[path_stem_pos..];
-        let path_dir = &full_path[..path_stem_pos];
+        let path_dir = &full_path[..path_stem_pos - 1];
 
         let (cat, repo) = split(&full_path, '/', '/');
 

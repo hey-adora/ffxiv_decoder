@@ -10,16 +10,23 @@ use crate::ffxiv::buffer::Buffer;
 use crate::ffxiv::path::{DatPath, FilePath, PathError};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::create_dir_all;
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
+use self::asset::scd::AssetSCDFile;
+use self::buffer::{BufferFile, BufferReader};
+
 pub mod asset;
 pub mod buffer;
+pub mod decode;
 pub mod metadata;
 pub mod path;
 
@@ -37,7 +44,7 @@ impl FFXIV {
         let (dat, index) = self
             .find_asset_by_dat_path(dat_path)
             .ok_or(AssetFindError::NotFound(format!("'{}'", dat_path.path_str)))?;
-        self.read_asset(dat, index)
+        self.read_asset_from_file(dat, &index)
     }
 
     // pub fn get_asset(&self, dat_path: &str) -> Result<FileType, AssetFindError> {
@@ -65,24 +72,40 @@ impl FFXIV {
         }
     }
 
-    pub fn read_asset(
+    pub fn read_asset_from_file(
         &self,
         dat: FilePath,
-        index: Index1Data1Item,
+        index: &Index1Data1Item,
     ) -> Result<FileType, AssetFindError> {
         let mut buffer = Buffer::from_file_path(&dat.path);
-        let header_type = DatHeaderType::check_at(&mut buffer, index.data_file_offset)?;
+        self.read_asset_from_buffer(&mut buffer, index)
+            .or_else(|e| match e {
+                AssetFindError::NotSupported(e) => Err(AssetFindError::NotSupported(format!(
+                    "Model type: {}",
+                    dat.path_str
+                ))),
+                AssetFindError::Empty(e) => Err(AssetFindError::Empty(format!("{}", dat.path_str))),
+                _ => Err(e),
+            })
+    }
+
+    pub fn read_asset_from_buffer<R: BufferReader>(
+        &self,
+        buffer: &mut Buffer<R>,
+        index: &Index1Data1Item,
+    ) -> Result<FileType, AssetFindError> {
+        let header_type = DatHeaderType::check_at(buffer, index.data_file_offset)?;
         match header_type {
             DatHeaderType::Texture => Ok(FileType::Texture(TextureFile::new_at(
-                &mut buffer,
+                buffer,
                 index.data_file_offset,
             ))),
             DatHeaderType::Standard => Ok(FileType::Standard(StandardFile::new_at(
-                &mut buffer,
+                buffer,
                 index.data_file_offset,
             ))),
             DatHeaderType::Model => Err(AssetFindError::NotSupported(format!("Model type"))),
-            DatHeaderType::Empty => Err(AssetFindError::Empty(format!("{}", dat.path_str))),
+            DatHeaderType::Empty => Err(AssetFindError::Empty(String::new())),
         }
     }
 
@@ -133,29 +156,63 @@ impl FFXIV {
         Asset::new_exl(self, path)
     }
 
+    pub fn get_scd(&self, path: DatPath) -> Result<Asset<AssetSCDFile>, AssetNewError> {
+        Asset::new_scd(self, path)
+    }
+
     pub fn get_paths(paths_file: &str) -> Result<HashMap<u64, DatPath>, AssetPathsError> {
         let paths_file =
             fs::read_to_string(paths_file).or_else(|e| Err(AssetPathsError::IO(e.to_string())))?;
         let paths: Vec<&str> = paths_file.split("\n").collect();
         let len = paths.len();
         let mut path_hashes: HashMap<u64, DatPath> = HashMap::with_capacity(len);
-        let bar = ProgressBar::new(len as u64);
-        let style = ("Parsing dat paths:", "█  ", "white");
-        bar.set_style(
-            ProgressStyle::with_template(&format!("{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}", style.2))
-                .unwrap()
-                .progress_chars(style.1),
-        );
-        bar.set_prefix(style.0);
-        for (i, path) in paths.iter().enumerate() {
-            bar.set_message(format!("{}/{} - {}", i + 1, len, path.to_owned()));
-            if path.len() > 3 {
-                let parsed_path = DatPath::new(&path)?;
-                path_hashes.insert(parsed_path.index1_hash, parsed_path);
-            }
-            bar.inc(1);
-        }
-        Ok(path_hashes)
+        let path_hashes_mutex: Mutex<HashMap<u64, DatPath>> = Mutex::new(path_hashes);
+        //let path_hashes_mutex_arc: Arc<Mutex<HashMap<u64, DatPath>>> = Arc::new(path_hashes_mutex);
+        let bar = MultiProgress::new();
+        let chunk_size =
+            FFXIV::chunk_size(len).or_else(|e| Err(AssetPathsError::ThreadCount(e.to_string())))?;
+        let chunks: Vec<&[&str]> = paths.chunks(chunk_size).collect();
+        let paths = chunks.par_iter().enumerate().map(
+            |(thread_i, paths): (usize, &&[&str])| -> Result<HashMap<u64, DatPath>, AssetPathsError> {
+                let len = paths.len();
+                let mut path_hashes: HashMap<u64, DatPath> = HashMap::with_capacity(len);
+                let bar = bar.add(ProgressBar::new(len as u64));
+                // let style = ("Parsing dat paths:", "█  ", "white");
+                bar.set_style(
+                    ProgressStyle::with_template(&format!(
+                        "{{prefix:.bold}}▕{{bar:.{}}}▏{{pos}}",
+                        "white"
+                    ))
+                    .unwrap()
+                    .progress_chars("█  "),
+                );
+                bar.set_prefix("Parsing path");
+
+                for (i, path) in (*paths).iter().enumerate() {
+                    //bar.set_message(format!("{}/{} - {}", i + 1, len, path.to_owned()));
+                    if path.len() > 3 {
+                        let parsed_path = DatPath::new(&path)?;
+                        path_hashes
+                            .insert(parsed_path.index1_hash, parsed_path);
+                    }
+                    bar.inc(1);
+                }
+
+                Ok(path_hashes)
+            },
+        ).try_reduce(|| HashMap::<u64, DatPath>::with_capacity(len), | mut a: HashMap<u64, DatPath>, b: HashMap<u64, DatPath> | -> Result<HashMap<u64, DatPath>, AssetPathsError> {
+                a.extend(b);
+
+                Ok(a)
+            })?;
+        // let mut path_hasmap_vec_cleaned: HashMap<u64, DatPath> = HashMap::with_capacity(len);
+        // for path_hasmap_dirty in path_hasmap_dirty_vec {
+        //     let path_hasmap_clean: HashMap<u64, DatPath> = path_hasmap_dirty?;
+        //     path_hasmap_vec_cleaned.extend(path_hasmap_clean);
+        // }
+        Ok(paths)
+        //Ok(path_hashes_mutex.into_inner().unwrap())
+
         // let mut thread_handles = vec![];
         // let mut thread_count = std::thread::available_parallelism()
         //     .or_else(|e| Err(AssetPathsError::ThreadCount(e.to_string())))?
@@ -219,6 +276,20 @@ impl FFXIV {
         // Ok(gg)
     }
 
+    pub fn chunk_size(len: usize) -> anyhow::Result<usize> {
+        let mut thread_count = std::thread::available_parallelism()?.get();
+        if thread_count < 2 {
+            thread_count = 2;
+        }
+
+        if thread_count > len {
+            thread_count = len;
+        }
+
+        let count = len / (thread_count - 1);
+        anyhow::Ok(count)
+    }
+
     pub fn get_all_hash_dat_index1item(&self) -> HashMap<u64, (String, Index1Data1Item)> {
         let mut map: HashMap<u64, (String, Index1Data1Item)> = HashMap::new();
 
@@ -239,7 +310,7 @@ impl FFXIV {
         map
     }
 
-    pub fn get_all_dat_index1item(&self) -> HashMap<String, Vec<Index1Data1Item>> {
+    pub fn get_all_dat_index1item_hashmap(&self) -> HashMap<String, Vec<Index1Data1Item>> {
         let mut map: HashMap<String, Vec<Index1Data1Item>> = HashMap::new();
 
         for group in &self.asset_files {
@@ -264,8 +335,220 @@ impl FFXIV {
         map
     }
 
+    pub fn get_all_dat_index1item_vec(&self) -> Vec<(String, Vec<Index1Data1Item>)> {
+        let mut vec: Vec<(String, Vec<Index1Data1Item>)> = Vec::new();
+
+        for group in &self.asset_files {
+            let index1 = Index::from_index1_file(&group.index1_file.path);
+            for item in index1.data1 {
+                let dat_file = group.dat_files.iter().find(|d| {
+                    d.path_extension == FFXIVFileGroup::gen_dat_id_str(item.data_file_id)
+                });
+                if let Some(dat_file) = dat_file {
+                    let dat_items_pos = vec
+                        .iter()
+                        .position(|(path, items)| *path == dat_file.path_str);
+                    if let Some(dat_items_pos) = dat_items_pos {
+                        let (dat, items) = vec.get_mut(dat_items_pos).unwrap();
+                        items.push(item.clone());
+                    } else {
+                        vec.push((dat_file.path_str.clone(), vec![item.clone()]));
+                    }
+                }
+            }
+        }
+
+        vec
+    }
+
+    // impl rayon::iter::FromParallelIterator<std::result::Result<std::collections::HashMap<u64, ffxiv::path::DatPath>, ffxiv::AssetPathsError>> for std::result::Result<std::collections::HashMap<u64, ffxiv::path::DatPath>, ffxiv::AssetPathsError> {
+    //
+    //    }
+    // pub fn export_audio_details(&self, path_names: &str) -> anyhow::Result<String> {
+    //     //let dats_hash = self.get_all_dat_index1item();
+    //     //let names = FFXIV::get_paths(path_names)?;
+    //     let lines: RefCell<String> = RefCell::new(String::new());
+    //     self.export_iter(
+    //         path_names,
+    //         |dat_buffer: &mut Buffer<BufferFile>,
+    //          item: &Index1Data1Item,
+    //          item_name: Option<&DatPath>|
+    //          -> anyhow::Result<()> {
+    //             if let Some(item_name) = item_name {
+    //                 if item_name.path_extension == "scd" {
+    //                     let standart_asset =
+    //                         StandardFile::new_at(dat_buffer, item.data_file_offset);
+    //                     let asset_vec = standart_asset.decompress()?;
+    //                     let asset = AssetSCDFile::from_vec(asset_vec);
+    //                     lines
+    //                         .borrow_mut()
+    //                         .push_str(&format!("channels: {}\n", asset.entry_channels));
+    //                 }
+    //             }
+    //             anyhow::Ok(())
+    //         },
+    //     )?;
+    //     anyhow::Ok(lines.into_inner())
+    // }
+
+    // pub fn export_iter<
+    //     T,
+    //     F: Fn(&mut Buffer<BufferFile>, &Index1Data1Item, Option<&DatPath>) -> anyhow::Result<T>,
+    // >(
+    //     &self,
+    //     path_names: &str,
+    //     callback: F,
+    // ) -> anyhow::Result<()> {
+    //     let dats_hash = self.get_all_dat_index1item();
+    //     let names = FFXIV::get_paths(path_names)?;
+    //
+    //     let i_max: usize = dats_hash.iter().fold(0, |a, b| a + b.1.len());
+    //     let bar = MultiProgress::new();
+    //
+    //     dats_hash
+    //         .iter()
+    //         .map(|(dat, items)| -> anyhow::Result<T> {
+    //             let bar = bar.add(ProgressBar::new(items.len() as u64));
+    //             let style = (dat.clone(), "█  ", "white");
+    //             bar.set_style(
+    //                 ProgressStyle::with_template(&format!(
+    //                     "{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}",
+    //                     style.2
+    //                 ))
+    //                 .unwrap()
+    //                 .progress_chars(style.1),
+    //             );
+    //             bar.set_prefix(style.0);
+    //             let mut buffer = Buffer::from_file_path(dat);
+    //             for (i, item) in items.iter().enumerate() {
+    //                 bar.set_message(format!("{}/{}", i + 1, i_max));
+    //                 let org_name = names.get(&item.hash);
+    //                 callback(&mut buffer, item, org_name)?;
+    //                 bar.inc(1);
+    //             }
+    //
+    //             bar.set_message(format!("{}/{}", i_max, i_max));
+    //             Ok(())
+    //         });
+    //     Ok(())
+    // }
+    pub fn export_scd_details(&self, path_names: &str) -> Result<String, AssetExportError> {
+        let dats_hash = self.get_all_dat_index1item_vec();
+        let names = FFXIV::get_paths(path_names)?;
+
+        let i_max: usize = dats_hash.iter().fold(0, |a, b| a + b.1.len());
+        let bar = MultiProgress::new();
+
+        let data_hash_len = dats_hash.len();
+        // let mut chunks_size = FFXIV::chunk_size(data_hash_len)
+        //     .or_else(|e| Err((AssetExportError::ThreadCount(e.to_string()))))?;
+        // let chunks: Vec<&[(String, Vec<Index1Data1Item>)]> =
+        //     dats_hash.chunks(chunks_size).collect();
+        // chunks
+        //     .par_iter()
+        //     .map(|chunk| -> Result<String, AssetExportError> {
+        //         let total_len: usize = chunk
+        //             .iter()
+        //             .map(|(dat, items)| items.len())
+        //             .fold(0usize, |i1, i2| i1 + i2);
+        //         let mut lines = String::with_capacity(total_len);
+        //         let bar = bar.add(ProgressBar::new(total_len as u64));
+        //         let style = (dat.clone(), "█  ", "white");
+        //         bar.set_style(
+        //             ProgressStyle::with_template(&format!(
+        //                 "{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}",
+        //                 style.2
+        //             ))
+        //             .unwrap()
+        //             .progress_chars(style.1),
+        //         );
+        //         bar.set_prefix(style.0);
+        //         for (dat, items) in chunk {
+        //             let items_len = items.len();
+        //             let mut buffer = Buffer::from_file_path(dat);
+        //             for (i, item) in items.iter().enumerate() {
+        //                 bar.set_message(format!("{}/{}", i + 1, i_max));
+        //                 let org_name = names.get(&item.hash);
+        //                 if let Some(item_name) = org_name {
+        //                     if item_name.path_extension == "scd" {
+        //                         let standart_asset =
+        //                             StandardFile::new_at(&mut buffer, item.data_file_offset);
+        //                         let asset_vec = standart_asset.decompress()?;
+        //                         let asset = AssetSCDFile::from_vec(asset_vec);
+        //                         lines.push_str(&format!("channels: {}\n", asset.entry_channels));
+        //                     }
+        //                 }
+        //                 bar.inc(1);
+        //             }
+        //
+        //             bar.set_message(format!("{}/{}", i_max, i_max));
+        //         }
+        //         Ok(lines)
+        //     });
+
+        let stuff: String = dats_hash
+            .par_iter()
+            .map(|(dat, items)| -> Result<String, AssetExportError> {
+                let items_len = items.len();
+                let mut lines = String::with_capacity(items_len * 500);
+                let bar = bar.add(ProgressBar::new(items_len as u64));
+                // let style = (dat.clone(), "█  ", "white");
+                // bar.set_style(
+                //     ProgressStyle::with_template(&format!(
+                //         "{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}",
+                //         style.2
+                //     ))
+                //     .unwrap()
+                //     .progress_chars(style.1),
+                // );
+                // bar.set_prefix(style.0);
+                bar.set_style(
+                    ProgressStyle::with_template(&format!(
+                        "{{prefix:.bold}}▕{{bar:.{}}}▏{{pos}}",
+                        "white"
+                    ))
+                    .unwrap()
+                    .progress_chars("█  "),
+                );
+                bar.set_prefix(dat.clone());
+                let mut buffer = Buffer::from_file_path(dat);
+                //return Err(AssetExportError::ThreadCount(String::from("fffff")));
+                for (i, item) in items.iter().enumerate() {
+                    //bar.set_message(format!("{}/{}", i + 1, i_max));
+                    let org_name = names.get(&item.hash);
+                    if let Some(item_name) = org_name {
+                        if item_name.path_extension == "scd" {
+                            let standart_asset =
+                                StandardFile::new_at(&mut buffer, item.data_file_offset);
+                            let asset_vec = standart_asset.decompress()?;
+                            let asset = AssetSCDFile::from_vec(asset_vec);
+                            lines.push_str(&format!("channels: {}\n", asset.entry_channels));
+                        }
+                    }
+                    bar.inc(1);
+                }
+                bar.finish();
+
+                //bar.set_message(format!("{}/{}", i_max, i_max));
+                Ok(lines)
+            })
+            .try_fold(
+                || String::with_capacity(i_max),
+                |mut a: String,
+                 b: Result<String, AssetExportError>|
+                 -> Result<String, AssetExportError> {
+                    let b: String = b?;
+                    a.push_str(&b);
+                    Ok(a)
+                },
+            )
+            .collect::<Result<String, AssetExportError>>()?;
+
+        Ok(stuff)
+    }
+
     pub fn export_all(&self, export_path: &str, path_names: &str) -> Result<(), AssetExportError> {
-        let dats_hash = self.get_all_dat_index1item();
+        let dats_hash = self.get_all_dat_index1item_hashmap();
         let names = FFXIV::get_paths(path_names)?;
 
         let i_max: usize = dats_hash.iter().fold(0, |a, b| a + b.1.len());
@@ -565,6 +848,19 @@ impl FFXIVFileGroup {
             }
         }
     }
+
+    pub fn gen_dat_id_str(i: u32) -> String {
+        match i {
+            0 => String::from("dat0"),
+            1 => String::from("dat1"),
+            2 => String::from("dat2"),
+            3 => String::from("dat3"),
+            4 => String::from("dat4"),
+            5 => String::from("dat5"),
+            6 => String::from("dat6"),
+            i => format!("dat{}", i),
+        }
+    }
 }
 
 //==================================================================================================
@@ -642,8 +938,8 @@ pub enum AssetFindError {
 
 #[derive(Error, Debug)]
 pub enum AssetPathsError {
-    // #[error("Failed to get thread count '{0}'.")]
-    // ThreadCount(String),
+    #[error("Failed to get thread count '{0}'.")]
+    ThreadCount(String),
     //
     // #[error("Failed to lock hashmap '{0}'.")]
     // Thread(#[from] AssetPathsThreadError),
@@ -667,6 +963,12 @@ pub enum AssetPathsThreadError {
 pub enum AssetExportError {
     #[error("Failed to get paths: '{0}'.")]
     Path(#[from] AssetPathsError),
+
+    #[error("Failed to get thread count '{0}'.")]
+    ThreadCount(String),
+
+    #[error("Decompression error: {0}")]
+    DecompressError(#[from] DecompressError),
 }
 
 #[derive(Error, Debug)]
