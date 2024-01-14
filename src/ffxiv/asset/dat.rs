@@ -234,17 +234,17 @@ pub enum DatHeaderType {
 }
 
 impl DatHeaderType {
-    pub fn new(n: u32) -> Result<DatHeaderType, String> {
+    pub fn new(n: u32) -> Result<DatHeaderType, DatHeaderTypeError> {
         match n {
             1 => Ok(DatHeaderType::Empty),
             2 => Ok(DatHeaderType::Standard),
             3 => Ok(DatHeaderType::Model),
             4 => Ok(DatHeaderType::Texture),
-            _ => Err(format!("Data type '{}' not found.", n))
+            _ => Err(DatHeaderTypeError::Invalid(n))
         }
     }
 
-    pub fn check_at<R: BufferReader>(buffer: &mut Buffer<R>, block_offset: u64) -> Result<DatHeaderType, String> {
+    pub fn check_at<R: BufferReader>(buffer: &mut Buffer<R>, block_offset: u64) -> Result<DatHeaderType, DatHeaderTypeError> {
         DatHeaderType::new(buffer.le_u32_at(block_offset + 0x04))
     }
 }
@@ -281,4 +281,10 @@ impl DatBlockType {
 pub enum DecompressError {
     #[error("Failed to decompress block: {0}")]
     BlockDecompressionError(String),
+}
+
+#[derive(Error, Debug)]
+pub enum DatHeaderTypeError {
+    #[error("Header type not found: '{0}', must be 1, 2, 3 or 4")]
+    Invalid(u32)
 }

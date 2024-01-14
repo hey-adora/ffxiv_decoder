@@ -9,12 +9,12 @@ pub struct Category {
 }
 
 impl Category {
-    pub fn from_hex_str(cat_hex_str: &str) -> Result<Category, CategoryError> {
-        let expansion_id: u32 = u32::from_str_radix(cat_hex_str, 16).or(Err(CategoryError::Invalid(format!("Failed to convert '{}' to number.", cat_hex_str))))?;
+    pub fn from_hex_str(cat_hex_str: &str) -> Result<Category, MetadataError> {
+        let expansion_id: u32 = u32::from_str_radix(cat_hex_str, 16).or(Err(MetadataError::Invalid(format!("Failed to convert '{}' to number.", cat_hex_str))))?;
         Category::from_number(expansion_id)
     }
 
-    pub fn from_str(cat: &str) -> Result<Category, CategoryError> {
+    pub fn from_str(cat: &str) -> Result<Category, MetadataError> {
         let id = match cat {
             "common" => 0x00,
             "bgcommon" => 0x01,
@@ -32,7 +32,7 @@ impl Category {
             "sqpack_test" => 0x12,
             "debug" => 0x13,
             _ => {
-                return Err(CategoryError::Invalid(format!("Category '{}' not found", cat)));
+                return Err(MetadataError::Invalid(format!("Category '{}' not found", cat)));
             }
         };
 
@@ -46,7 +46,7 @@ impl Category {
 
     }
 
-    pub fn from_number(cat: u32) -> Result<Category, CategoryError> {
+    pub fn from_number(cat: u32) -> Result<Category, MetadataError> {
         let name = match cat {
             0x00 => "common",
             0x01 => "bgcommon",
@@ -64,7 +64,7 @@ impl Category {
             0x12 => "sqpack_test",
             0x13 => "debug",
             _ => {
-                return Err(CategoryError::Invalid(format!("Category '{}' not found", cat)));
+                return Err(MetadataError::Invalid(format!("Category '{}' not found", cat)));
             }
         };
 
@@ -86,12 +86,7 @@ impl Category {
 //     Invalid(#[from] String),
 // }
 
-#[derive(Error, Debug)]
-pub enum CategoryError {
 
-    #[error("Asset Category: `{0}`")]
-    Invalid(String),
-}
 
 // impl Display for CategoryError {
 //     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -110,10 +105,10 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn from_hex_str(chunk_hex_str: &str) -> Result<Chunk, String> {
+    pub fn from_hex_str(chunk_hex_str: &str) -> Result<Chunk, MetadataError> {
         let chunk_number: u32 = u32::from_str_radix(chunk_hex_str, 16).or(Err(format!("Failed to parse chunk '{}' to a number.", chunk_hex_str)))?;
         if chunk_number > 255 {
-            return Err(format!("Chunk '{}' is out of range 0:255", chunk_number));
+            return Err(MetadataError::Invalid(format!("Chunk '{}' is out of range 0:255", chunk_number)));
         }
         Ok(Chunk {
             hex: String::from(chunk_hex_str),
@@ -121,9 +116,9 @@ impl Chunk {
         })
     }
 
-    pub fn from_u32(chunk_number: u32) -> Result<Chunk, String> {
+    pub fn from_u32(chunk_number: u32) -> Result<Chunk, MetadataError> {
         if chunk_number > 255 {
-            return Err(format!("Chunk '{}' is out of range 0:255", chunk_number));
+            return Err(MetadataError::Invalid(format!("Chunk '{}' is out of range 0:255", chunk_number)));
         }
         let chunk_name: String = format!("{:02x}", chunk_number);
         Ok(Chunk {
@@ -143,8 +138,8 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn from_hex_str(repo_hex_str: &str) -> Result<Repository, String> {
-        let expansion_id: u32 = u32::from_str_radix(repo_hex_str, 16).or(Err(format!("Failed to convert '{}' to number.", repo_hex_str)))?;
+    pub fn from_hex_str(repo_hex_str: &str) -> Result<Repository, MetadataError> {
+        let expansion_id: u32 = u32::from_str_radix(repo_hex_str, 16).or(Err(MetadataError::Invalid(format!("Failed to convert '{}' to number.", repo_hex_str))))?;
         Ok(Repository::from_u32(expansion_id))
     }
 
@@ -190,13 +185,13 @@ pub struct Platform {
 }
 
 impl Platform {
-    pub fn from_u32(n: u32) -> Result<Platform, String> {
+    pub fn from_u32(n: u32) -> Result<Platform, MetadataError> {
         let name = match n {
             0 => "win32",
             1 => "ps3",
             2 => "ps4",
             _ => {
-                return Err(format!("Platform id out of range 0:2, got: {}", n));
+                return Err(MetadataError::Invalid(format!("Platform id out of range 0:2, got: {}", n)));
             }
         };
 
@@ -206,13 +201,13 @@ impl Platform {
         })
     }
 
-    pub fn from_str(platform: &str) -> Result<Platform, String> {
+    pub fn from_str(platform: &str) -> Result<Platform, MetadataError> {
         let id = match platform {
             "win32" => 0u32,
             "ps3" => 1u32,
             "ps4" => 2u32,
             _ => {
-                return Err(format!("Platform '{}' not found.", platform));
+                return Err(MetadataError::Invalid(format!("Platform '{}' not found.", platform)));
             }
         };
 
@@ -222,12 +217,12 @@ impl Platform {
         })
     }
 
-    pub fn from_hex_str(platform_hex_str: &str) -> Result<Platform, String> {
-        let expansion_id: u32 = u32::from_str_radix(platform_hex_str, 16).or(Err(format!("Failed to convert '{}' to number.", platform_hex_str)))?;
+    pub fn from_hex_str(platform_hex_str: &str) -> Result<Platform, MetadataError> {
+        let expansion_id: u32 = u32::from_str_radix(platform_hex_str, 16).or(Err(MetadataError::Invalid(format!("Failed to convert '{}' to number.", platform_hex_str))))?;
         Platform::from_u32(expansion_id)
     }
 
-    pub fn from_str_contains(string: &str) -> Result<Platform, String> {
+    pub fn from_str_contains(string: &str) -> Result<Platform, MetadataError> {
         let mut name: String = String::new();
         let mut id = 0;
         if string.contains("win32") {
@@ -239,7 +234,7 @@ impl Platform {
             name = String::from("ps4");
             id = 4;
         } else {
-            return Err(String::from("String doesn't contain win32, ps3 or ps4"));
+            return Err(MetadataError::Invalid(String::from("String doesn't contain win32, ps3 or ps4")));
         }
 
         Ok(
@@ -249,4 +244,12 @@ impl Platform {
             }
         )
     }
+}
+
+
+#[derive(Error, Debug)]
+pub enum MetadataError {
+
+    #[error("Asset Category: `{0}`")]
+    Invalid(String),
 }

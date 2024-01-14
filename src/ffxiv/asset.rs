@@ -1,6 +1,8 @@
+use thiserror::Error;
 use crate::ffxiv::asset::exh::{EXH, EXHLang};
-use crate::ffxiv::{CSVExportError, FFXIV, FileType};
+use crate::ffxiv::{FFXIV, FileType, FileTypeError};
 use crate::ffxiv::asset::exd::EXD;
+use crate::ffxiv::asset::exl::EXL;
 use crate::ffxiv::buffer::Buffer;
 use crate::ffxiv::path::DatPath;
 
@@ -20,7 +22,7 @@ pub struct Asset<'a, T> {
 }
 
 impl <'a> Asset<'a, EXH> {
-    pub fn new(ffxiv: &'a FFXIV, path: &str) -> Asset<'a, EXH> {
+    pub fn new_exh(ffxiv: &'a FFXIV, path: &str) -> Asset<'a, EXH> {
         let path = DatPath::new(path).unwrap();
         let asset = ffxiv.get_asset_by_dat_path(&path).unwrap();
         let data = match asset {
@@ -38,7 +40,7 @@ impl <'a> Asset<'a, EXH> {
     }
 
     pub fn get_page(&self, lang: &EXHLang, page: u32) -> Result<String, CSVExportError> {
-        let exd_asset_path = FFXIV::make_exd_path(&self.path.path_dir, &self.path.path_stem, lang, page);
+        let exd_asset_path = Asset::make_exd_path(&self.path.path_dir, &self.path.path_stem, lang, page);
         let exd =  self.game.get_asset_by_dat_path(&exd_asset_path).ok_or(CSVExportError::EXDNotFound(exd_asset_path.path_str))?;
         let exd = EXD::from_vec(exd.decompress()?, &self.data);
 
@@ -48,4 +50,48 @@ impl <'a> Asset<'a, EXH> {
 
         Ok(csv)
     }
+
+    pub fn export_all(&self, path: &str) {
+        let exl = self.game.get_asset("exd/root.exl");
+
+    }
+
+    pub fn make_exd_path(dir: &str, name: &str, lang: &EXHLang, page: u32) -> DatPath {
+        let exd_asset_path = format!("{}/{}_{}_{}.exd", dir , name, page, lang);
+        DatPath::new(&exd_asset_path).unwrap()
+    }
+}
+
+impl <'a> Asset<'a, EXL> {
+    pub fn new_exl(ffxiv: &'a FFXIV, path: &str) -> Asset<'a, EXL> {
+        let path = DatPath::new(path).unwrap();
+        let asset = ffxiv.get_asset_by_dat_path(&path).unwrap();
+        let data = match asset {
+            FileType::Standard(exh) => exh,
+            _ => panic!("wrong file type")
+        };
+        let data = data.decompress().unwrap();
+        let data = EXL::from_vec(data);
+        Asset {
+            path,
+            data,
+            game: ffxiv
+        }
+    }
+}
+
+
+#[derive(Error, Debug)]
+pub enum CSVExportError {
+    #[error("'exd/root.exl' not found at")]
+    RootNotFound,
+
+    #[error("EXH not found: {0}")]
+    EXHNotFound(String),
+
+    #[error("EXD not found: {0}")]
+    EXDNotFound(String),
+
+    #[error("'exd/root.exl' failed to decompress: {0}")]
+    RootDecompressionFail(#[from] FileTypeError),
 }
