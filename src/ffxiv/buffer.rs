@@ -50,16 +50,16 @@ macro_rules! read_be_or_le_at_impl {
     }
 }
 
-pub trait FFXIVBufferReader {
+pub trait BufferReader {
     fn read_to_buffer_at(&mut self, buffer: &mut [u8], at: u64);
 }
 
-pub struct FFXIVBuffer<T: FFXIVBufferReader> {
+pub struct Buffer<T: BufferReader> {
     pub reader: T,
     pub offset: u64
 }
 
-impl<T: FFXIVBufferReader> FFXIVBuffer<T> {
+impl<T: BufferReader> Buffer<T> {
     read_impl!(u8, from_be_bytes, u8);
     read_impl!(i8, from_be_bytes, i8);
 
@@ -189,28 +189,28 @@ impl<T: FFXIVBufferReader> FFXIVBuffer<T> {
 }
 //==================================================================================================
 
-pub struct FFXIVBufferVec {
+pub struct BufferVec {
     pub buffer_vec: Vec<u8>
 }
 
-impl FFXIVBufferVec {
-    pub fn new_vec(vec: Vec<u8>) -> FFXIVBufferVec {
-        FFXIVBufferVec {
+impl BufferVec {
+    pub fn new_vec(vec: Vec<u8>) -> BufferVec {
+        BufferVec {
             buffer_vec: vec
         }
     }
 }
 
-impl FFXIVBufferReader for FFXIVBufferVec {
+impl BufferReader for BufferVec {
     fn read_to_buffer_at(&mut self, buffer: &mut [u8], at: u64) {
         buffer.copy_from_slice(&self.buffer_vec[at as usize..at as usize+buffer.len()]);
     }
 }
 
-impl FFXIVBuffer<FFXIVBufferVec> {
-    pub fn from_vec(vec: Vec<u8>) -> FFXIVBuffer<FFXIVBufferVec> {
-        FFXIVBuffer {
-            reader: FFXIVBufferVec::new_vec(vec),
+impl Buffer<BufferVec> {
+    pub fn from_vec(vec: Vec<u8>) -> Buffer<BufferVec> {
+        Buffer {
+            reader: BufferVec::new_vec(vec),
             offset: 0
         }
     }
@@ -218,29 +218,29 @@ impl FFXIVBuffer<FFXIVBufferVec> {
 
 //==================================================================================================
 
-pub struct FFXIVBufferFile {
+pub struct BufferFile {
     pub file_handle: RandomAccessFile
 }
 
-impl FFXIVBufferFile {
-    pub fn new_file_from_path<P: AsRef<Path>>(path: P) -> FFXIVBufferFile {
+impl BufferFile {
+    pub fn new_file_from_path<P: AsRef<Path>>(path: P) -> BufferFile {
         let file_handle = RandomAccessFile::open(path).unwrap();
-        FFXIVBufferFile {
+        BufferFile {
             file_handle
         }
     }
 }
 
-impl FFXIVBufferReader for FFXIVBufferFile {
+impl BufferReader for BufferFile {
     fn read_to_buffer_at(&mut self, buffer: &mut [u8], at: u64) {
         self.file_handle.read_at(at, buffer).unwrap();
     }
 }
 
-impl FFXIVBuffer<FFXIVBufferFile> {
-    pub fn from_file_path<P: AsRef<Path>>(path: P) -> FFXIVBuffer<FFXIVBufferFile> {
-        FFXIVBuffer {
-            reader: FFXIVBufferFile::new_file_from_path(path),
+impl Buffer<BufferFile> {
+    pub fn from_file_path<P: AsRef<Path>>(path: P) -> Buffer<BufferFile> {
+        Buffer {
+            reader: BufferFile::new_file_from_path(path),
             offset: 0
         }
     }
@@ -249,13 +249,13 @@ impl FFXIVBuffer<FFXIVBufferFile> {
 //==================================================================================================
 
 #[cfg(test)]
-mod FFXIVBufferTests {
-    use crate::ffxiv::ffxiv_buffer::FFXIVBuffer;
+mod BufferTests {
+    use crate::ffxiv::buffer::Buffer;
 
     #[test]
     fn reading_u8() {
         let buffer = vec![116, 101, 115, 116, 32, 121, 111];
-        let mut buffer_reader = FFXIVBuffer::from_vec(buffer);
+        let mut buffer_reader = Buffer::from_vec(buffer);
         let n = buffer_reader.u8();
         assert_eq!(n, 116);
     }
@@ -263,7 +263,7 @@ mod FFXIVBufferTests {
     #[test]
     fn reading_u16() {
         let buffer = vec![116, 101, 115, 116, 32, 121, 111];
-        let mut buffer_reader = FFXIVBuffer::from_vec(buffer);
+        let mut buffer_reader = Buffer::from_vec(buffer);
         let n = buffer_reader.be_u16();
         assert_eq!(n, 29797);
     }
@@ -271,7 +271,7 @@ mod FFXIVBufferTests {
     #[test]
     fn reading_string() {
         let buffer = vec![116, 101, 115, 116, 32, 121, 111];
-        let mut buffer_reader = FFXIVBuffer::from_vec(buffer);
+        let mut buffer_reader = Buffer::from_vec(buffer);
         let n = buffer_reader.string(4);
         assert_eq!(n, "test");
     }

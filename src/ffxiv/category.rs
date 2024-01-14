@@ -1,16 +1,18 @@
+use thiserror::Error;
+
 #[derive(Debug, Clone)]
-pub struct AssetFileCategory {
+pub struct Category {
     pub name: String,
     pub id: u32
 }
 
-impl AssetFileCategory {
-    pub fn from_hex_str(cat_hex_str: &str) -> Result<AssetFileCategory, String> {
-        let expansion_id: u32 = u32::from_str_radix(cat_hex_str, 16).or(Err(format!("Failed to convert '{}' to number.", cat_hex_str)))?;
-        AssetFileCategory::from_number(expansion_id)
+impl Category {
+    pub fn from_hex_str(cat_hex_str: &str) -> Result<Category, CategoryError> {
+        let expansion_id: u32 = u32::from_str_radix(cat_hex_str, 16).or(Err(CategoryError::Invalid(format!("Failed to convert '{}' to number.", cat_hex_str))))?;
+        Category::from_number(expansion_id)
     }
 
-    pub fn from_str(cat: &str) -> Result<AssetFileCategory, String> {
+    pub fn from_str(cat: &str) -> Result<Category, CategoryError> {
         let id = match cat {
             "common" => 0x00,
             "bgcommon" => 0x01,
@@ -28,12 +30,12 @@ impl AssetFileCategory {
             "sqpack_test" => 0x12,
             "debug" => 0x13,
             _ => {
-                return Err(format!("Category '{}' not found", cat));
+                return Err(CategoryError::Invalid(format!("Category '{}' not found", cat)));
             }
         };
 
         Ok(
-            AssetFileCategory {
+            Category {
                 name: String::from(cat),
                 id
             }
@@ -42,7 +44,7 @@ impl AssetFileCategory {
 
     }
 
-    pub fn from_number(cat: u32) -> Result<AssetFileCategory, String> {
+    pub fn from_number(cat: u32) -> Result<Category, CategoryError> {
         let name = match cat {
             0x00 => "common",
             0x01 => "bgcommon",
@@ -60,12 +62,12 @@ impl AssetFileCategory {
             0x12 => "sqpack_test",
             0x13 => "debug",
             _ => {
-                return Err(format!("Category '{}' not found", cat));
+                return Err(CategoryError::Invalid(format!("Category '{}' not found", cat)));
             }
         };
 
         Ok(
-            AssetFileCategory {
+            Category {
                 name: String::from(name),
                 id: cat
             }
@@ -74,3 +76,10 @@ impl AssetFileCategory {
 
     }
 }
+
+#[derive(Error, Debug)]
+pub enum CategoryError {
+    #[error("Asset Category: `{0}`")]
+    Invalid(String),
+}
+
