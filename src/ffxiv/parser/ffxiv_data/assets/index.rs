@@ -68,7 +68,7 @@ impl IndexParser<Index2Data1Item> for Index<Index2Data1Item> {
 trait IndexParser<T> {
     fn parse_header(buffer: &mut Buffer) -> Index<T> {
         let file_signature = buffer.string(0x00, 0x08);
-        let file_platform = Platform::from_number(buffer.u8(0x08) as u32).unwrap();
+        let file_platform = Platform::from_u32(buffer.u8(0x08) as u32).unwrap();
         let file_header_offset = buffer.u32(0x0C);
         let file_version = buffer.u32(0x10);
         let file_type = buffer.u32(0x10);

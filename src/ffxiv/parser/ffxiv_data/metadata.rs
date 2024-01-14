@@ -30,12 +30,33 @@ impl FFXIVFileMetadata {
         let file_extension = file_path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;
         let file_path_components: Vec<Option<&str>> = file_path.components().map(|c| c.as_os_str().to_str()).collect();
 
+        let file_name_bytes = file_name.as_bytes();
         let file_name_regex =  Regex::new(r"^\d{6}\.(win32|ps3|ps4)\.index\d$").or(Err("Failed to create regex"))?;
-        let file_name_valid = file_name_regex.captures(file_name.as_bytes()).ok_or(format!("File name '{}' is invalid.", file_name))?;
-        let
+        let file_name_valid = file_name_regex.captures(file_name_bytes).ok_or(format!("File name '{}' is invalid.", file_name))?;
+
+        let category_str = String::from_utf8(file_name_bytes[0..2].to_vec()).or(Err("Failed to slice name to category"))?;
+        let repository_str = String::from_utf8(file_name_bytes[2..4].to_vec()).or(Err("Failed to slice name to repository"))?;
+        let chunk_str = String::from_utf8(file_name_bytes[4..6].to_vec()).or(Err("Failed to slice name to chunk"))?;
+        let chunk_str = String::from_utf8(file_name_bytes[4..6].to_vec()).or(Err("Failed to slice name to chunk"))?;
+
+        let data_category = Category::from_hex_str(&category_str)?;
+        let data_repository = Repository::from_hex_str(&repository_str)?;
+        let data_chunk = Chunk::from_hex_str(&chunk_str)?;
+        let data_platform = Platform::from_str_contains(&file_name)?;
 
 
 
-        0
+
+        Ok(
+            FFXIVFileMetadata {
+                file_path,
+                file_name: String::from(file_name),
+                file_extension: String::from(file_extension),
+                data_category,
+                data_repository,
+                data_chunk,
+                data_platform
+            }
+        )
     }
 }

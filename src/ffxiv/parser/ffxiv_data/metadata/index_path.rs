@@ -35,7 +35,7 @@ impl IndexPath {
         let index1_hash = IndexPath::double_hash(data_folder, data_name_hash);
         let index2_hash = IndexPath::hash(full_path);
 
-        let platform = Platform::from_number(0)?;
+        let platform = Platform::from_u32(0)?;
 
         Ok(
             IndexPath {
