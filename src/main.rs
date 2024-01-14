@@ -6,6 +6,7 @@ use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
 use game_data_resolver::ffxiv::{FFXIV, test, test2, test_exd, test_hash};
+use game_data_resolver::ffxiv::parser::ffxiv_data::metadata::index_path::IndexPath;
 
 fn main() {
     //let path = PathBuf::from("./test/test2/test.txt");
@@ -22,7 +23,14 @@ fn main() {
     //test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "sound/vfx/monster/se_vfx_monster_reming_revolvekick.scd");
 
     //test_exd("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
-    test_hash("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
+    //test_hash("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
+
+    // let b = IndexPath::new(PathBuf::from("exd/Action_0_en.exd")).unwrap();
+    // println!("{}", b.index1_hash);
+
+    //exd/Action_0_en.exd
+    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "exd/action.exh");
+    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "exd/action_0_en.exd");
 
     // let mut o = AtomicUsize::new(1);
     // let mut spinlock = Arc::new(o);

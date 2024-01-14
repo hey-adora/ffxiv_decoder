@@ -19,10 +19,10 @@ use crate::ffxiv::parser::ffxiv_data::metadata::index_path::IndexPath;
 use crate::ffxiv::reader::buffer_with_log::BufferWithLog;
 use crate::ffxiv::reader::buffer_with_random_access::BufferWithRandomAccess;
 
-mod decoder;
-mod parser;
-mod reader;
-mod visualizer;
+pub mod decoder;
+pub mod parser;
+pub mod reader;
+pub mod visualizer;
 
 pub struct FFXIV {
     asset_files: Vec<FFXIVAssetFiles>,
@@ -468,7 +468,8 @@ pub fn test(game_path: &str, index_path: &str) {
             let asset_metadata = DatFileNormalAssetMetadata::new(&mut data_file, item.data_file_offset);
             let compressed_asset_data_blocks = DatFileNormalAssetBlockData::from_metadata(&mut data_file, &asset_metadata, item.data_file_offset);
             let decompressed_asset_data_blocks = decompress(compressed_asset_data_blocks);
-            write_to_file(decompressed_asset_data_blocks, &parsed_index_path);
+            let save_file = SaveFilePath::from_index_path(&parsed_index_path);
+            save_file.write_blocks(decompressed_asset_data_blocks);
 
             //let compressed_blocks = get_scd_file(&mut data_file, item.data_file_offset as usize);
 
@@ -529,9 +530,9 @@ pub struct SaveFilePath {
 }
 
 impl SaveFilePath {
-    pub fn new(index_path: &IndexPath, file_extension: String) -> SaveFilePath {
+    pub fn from_index_path(index_path: &IndexPath) -> SaveFilePath {
         //let file_stem = format!("{}_{}", index_path.index1_hash, index_path.file_stem);
-        let file_path_str = format!("./media/here/{}_{}.{}", index_path.index1_hash, index_path.file_stem, file_extension);
+        let file_path_str = format!("./media/here/{}_{}.{}", index_path.index1_hash, index_path.file_stem, index_path.file_extension);
         let file_path_buf = PathBuf::from(&file_path_str);
         let exists = file_path_buf.exists();
         SaveFilePath {
@@ -540,6 +541,7 @@ impl SaveFilePath {
             exists,
         }
     }
+
 
     pub fn write_blocks(&self, blocks: Vec<Vec<u8>>) {
         let dir = self.file_path_buf.parent().unwrap();
@@ -550,7 +552,7 @@ impl SaveFilePath {
         }
     }
 
-    pub fn write_decompressed_blocks(&self, data_path: &String, offset: u64) {
+    pub fn decompress_and_write_blocks(&self, data_path: &String, offset: u64) {
         let mut data_file = BufferWithRandomAccess::from_file(data_path);
         let asset_metadata = DatFileNormalAssetMetadata::new(&mut data_file, offset);
         let compressed_asset_data_blocks = DatFileNormalAssetBlockData::from_metadata(&mut data_file, &asset_metadata, offset);
@@ -654,10 +656,10 @@ pub fn test_exd(game_path: &str) {
         let path = hash_names.get(&hash);
         if let Some(path) = path {
             if path.file_extension == "exl" {
-                let mut scd_file_path = SaveFilePath::new(path, String::from("exl"));
+                let mut scd_file_path = SaveFilePath::from_index_path(path);
 
                 if !scd_file_path.exists {
-                    scd_file_path.write_decompressed_blocks(data_path, index1data1item.data_file_offset);
+                    scd_file_path.decompress_and_write_blocks(data_path, index1data1item.data_file_offset);
                 }
             }
 
@@ -694,7 +696,7 @@ pub fn test2(game_path: &str) {
         let path = hash_names.get(&hash);
         if let Some(path) = path {
             if path.file_extension == "scd" {
-                let mut scd_file_path = SaveFilePath::new(path, String::from("scd"));
+                let mut scd_file_path = SaveFilePath::from_index_path(path);
 
                 if scd_file_path.exists {
                     let wav_file_path = scd_file_path.as_new("wav");
@@ -708,7 +710,7 @@ pub fn test2(game_path: &str) {
                     let wav_file_path = scd_file_path.as_new("wav");
 
                     if !wav_file_path.exists {
-                        scd_file_path.write_decompressed_blocks(data_path, index1data1item.data_file_offset);
+                        scd_file_path.decompress_and_write_blocks(data_path, index1data1item.data_file_offset);
                         scd_file_path.decode_to_wav();
                         scd_file_path.remove();
                     }
