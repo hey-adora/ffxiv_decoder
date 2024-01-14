@@ -1,6 +1,6 @@
 use regex::Regex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repository {
     pub name: String,
     pub id: u32
@@ -11,7 +11,7 @@ impl Repository {
         let expansion_id: u32 = u32::from_str_radix(repo_hex_str, 16).or(Err(format!("Failed to convert '{}' to number.", repo_hex_str)))?;
         Ok(Repository::from_u32(expansion_id))
     }
-    
+
     pub fn from_str(repo: &str) -> Repository {
         let regex = Regex::new(r"^ex\d+$").unwrap();
         let captured = regex.captures(repo);
@@ -30,7 +30,7 @@ impl Repository {
             id: 0
         }
     }
-    
+
     pub fn from_u32(number: u32) -> Repository{
         let mut expansion = String::new();
         if number > 0 {

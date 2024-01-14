@@ -1,5 +1,7 @@
+use game_data_resolver::ffxiv::FFXIV;
+
 fn main() {
-    
+    let ffxiv = FFXIV::new("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
     println!("damm");
 }
 
