@@ -14,7 +14,7 @@ use copypasta::{ClipboardContext, ClipboardProvider};
 use imgui::sys::{igGetCurrentWindow, ImGuiDockNodeFlags};
 use eframe::{egui, Frame};
 use game_data_resolver::ffxiv::asset_exh_file::{AssetEXHFileColumnKind, AssetEXHFileLanguage};
-use game_data_resolver::ffxiv::ffxiv_asset::{FFXIVAssetParserDat, FFXIVAssetParserDatBlock, FFXIVAssetParserDatStandardHeader, DatTexture, FFXIVAssetPathDat};
+use game_data_resolver::ffxiv::ffxiv_asset::{FFXIVAssetParserDat, FFXIVAssetParserDatBlock, StandardFile, TextureFile, FFXIVAssetPathDat, FileType};
 use game_data_resolver::ffxiv::ffxiv_buffer::{FFXIVBuffer, FFXIVBufferFile};
 use game_data_resolver::ffxiv::ffxiv_game::FFXIVAssetFiles;
 
@@ -31,10 +31,18 @@ fn main() {
     //
     // println!("test"); // chara/equipment/e0171/texture/v01_c0101e0171_glv_n.tex // exd/root.exl
     let ffxiv_files = FFXIVAssetFiles::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
-    let (dat_file_path, index) = ffxiv_files.find_asset("chara/equipment/e0171/texture/v01_c0101e0171_glv_n.tex").unwrap();
-    let mut buffer = FFXIVBuffer::from_file_path(&dat_file_path.path);
-    let header = DatTexture::new(&mut buffer, index.data_file_offset);
-    fs::write("./v01_c0101e0171_glv_n.tex", header.decompress()).unwrap();
+    let paths = ffxiv_files.get_assets_path_from_file("/home/night/Documents/GitHub/game_data_resolver/media2/all_paths.txt");
+    // let tex = ffxiv_files.get_asset("chara/equipment/e0171/texture/v01_c0101e0171_glv_n.tex").unwrap().decompress().unwrap();
+    // let exl = ffxiv_files.get_asset("exd/root.exl").unwrap().decompress().unwrap();
+    // fs::write("./v01_c0101e0171_glv_n.tex", tex).unwrap();
+    // fs::write("./root.exl2", exl).unwrap();
+
+    //let mut buffer = FFXIVBuffer::from_file_path(&dat_file_path.path);
+    //let tex = TextureFile::new(&mut buffer, index.data_file_offset);
+
+
+
+
     println!("test");
     //let compressed_asset = FFXIVAssetParserDat::from_file_path(dat_file_path.path, index.data_file_offset);
     //let decompressed_data_blocks = compressed_asset.to_decompressed();

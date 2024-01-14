@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::ffxiv::ffxiv_asset::{FFXIVAssetParserIndex, FFXIVAssetParserIndex1Data1Item, FFXIVAssetPathDat, FFXIVAssetPathFile};
+use std::sync::{Arc, Mutex};
+use crate::ffxiv::ffxiv_asset::{FFXIVAssetParserDatHeaderType, FFXIVAssetParserIndex, FFXIVAssetParserIndex1Data1Item, FFXIVAssetPathDat, FFXIVAssetPathFile, FileType, StandardFile, TextureFile};
+use crate::ffxiv::ffxiv_buffer::FFXIVBuffer;
 
 // pub struct FFXIVGame {
 //     game_path: String,
@@ -58,6 +61,18 @@ impl FFXIVAssetFiles {
         }
     }
 
+    pub fn get_asset(&self, dat_path: &str) -> Option<FileType> {
+        let (dat, index) = self.find_asset(dat_path).unwrap();
+        let mut buffer = FFXIVBuffer::from_file_path(&dat.path);
+        let header_type = FFXIVAssetParserDatHeaderType::check_at(&mut buffer, index.data_file_offset).ok()?;
+        match header_type {
+            FFXIVAssetParserDatHeaderType::Texture => Some(FileType::Texture(TextureFile::new(&mut buffer, index.data_file_offset))),
+            FFXIVAssetParserDatHeaderType::Standard => Some(FileType::Standard(StandardFile::new(&mut buffer, index.data_file_offset))),
+            FFXIVAssetParserDatHeaderType::Model => None,
+            FFXIVAssetParserDatHeaderType::Empty => None
+        }
+    }
+
     pub fn find_asset(&self, dat_path: &str) -> Option<(FFXIVAssetPathFile, FFXIVAssetParserIndex1Data1Item)> {
         let path_dat = FFXIVAssetPathDat::from_str(dat_path).unwrap();
         let possible_asset_files = self.find_possible_files_from_dot_path(&path_dat);
@@ -79,6 +94,82 @@ impl FFXIVAssetFiles {
         None
     }
 
+    pub fn get_assets_path_from_file(&self, paths_file: &str) -> HashMap<u64, FFXIVAssetPathDat> {
+        let mut path_hashes: HashMap<u64, FFXIVAssetPathDat> = HashMap::new();
+
+        let mut thread_handles = vec![];
+        let mut thread_count = std::thread::available_parallelism().unwrap().get();
+        if thread_count < 2 {
+            thread_count = 2;
+        }
+
+
+        let paths_file = fs::read_to_string(paths_file).unwrap();
+        let paths: Vec<&str> = paths_file.split("\n").collect();
+        let line_count = paths.len();
+        if thread_count > line_count {
+            thread_count = line_count;
+        }
+
+        let path_chunks: Vec<&[&str]> = paths.chunks(line_count / (thread_count - 1)).collect();
+
+        let path_hashes_arc_mutex = Mutex::new(path_hashes);
+        let path_hashes_arc = Arc::new(path_hashes_arc_mutex);
+        for (thread_index, chunk) in path_chunks.iter().enumerate() {
+            let paths_block: Vec<String> = chunk.to_vec().iter().map(|p| (*p).to_owned()).collect();
+            let line_count = paths_block.len();
+            let path_hashes_clone = Arc::clone(&path_hashes_arc);
+
+            let handle = std::thread::spawn(move || {
+                let max_index: f32 = line_count as f32;
+                let check_every: f32 = (max_index / 100.0).floor();
+                let mut path_hashes: HashMap<u64, FFXIVAssetPathDat> = HashMap::new();
+
+                for (index, path) in paths_block.iter().enumerate() {
+                    let parsed_path = FFXIVAssetPathDat::from_str(&path);
+                    if let Ok(parsed_path) = parsed_path {
+                        path_hashes.insert(parsed_path.index1_hash, parsed_path);
+
+                        let index = index as f32;
+                        if index % check_every == 0.0 {
+                            let done = (index / max_index) * 100.0;
+                            println!("Thread {} Reading path: {}%.\n", thread_index, done);
+                        }
+                    }
+                }
+                path_hashes_clone.lock().unwrap().extend(path_hashes);
+            });
+            thread_handles.push(handle);
+        }
+
+        for thread_handle in thread_handles {
+            thread_handle.join().unwrap();
+        }
+
+
+        let mut gg = Arc::try_unwrap(path_hashes_arc).unwrap().into_inner().unwrap();
+
+        gg
+    }
+
+    pub fn get_index1_assets_locations(&self) -> HashMap<u64, (String, FFXIVAssetParserIndex1Data1Item)> {
+        let mut map: HashMap<u64, (String, FFXIVAssetParserIndex1Data1Item)> = HashMap::new();
+
+        for group in &self.asset_files {
+            let index1 = FFXIVAssetParserIndex::from_index1_file(&group.index1_file.path);
+            for item in index1.data1 {
+                let find_this_dat =  format!("dat{}", item.data_file_id);
+                let dat_file = group.dat_files.iter().find(|d| d.path_extension == find_this_dat);
+                if let Some(dat_file_path) = dat_file {
+                    map.insert(item.hash,(dat_file_path.path_str.clone(), item));
+                }
+            }
+        }
+
+        map
+
+    }
+
     fn find_possible_files_from_dot_path(&self, asset_path: &FFXIVAssetPathDat) -> Vec<&FFXIVAssetFileGroup>{
         let mut possible_asset_files: Vec<&FFXIVAssetFileGroup> = Vec::new();
 
@@ -91,6 +182,7 @@ impl FFXIVAssetFiles {
 
         possible_asset_files
     }
+
 }
 
 

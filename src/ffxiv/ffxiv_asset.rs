@@ -30,7 +30,7 @@ use crate::ffxiv::ffxiv_buffer::{FFXIVBuffer, FFXIVBufferReader};
 //==================================================================================================
 
 pub struct FFXIVAssetParserDat {
-    pub header: FFXIVAssetParserDatStandardHeader,
+    pub header: StandardFile,
     pub raw_data_blocks: Vec<FFXIVAssetParserDatBlock>,
 }
 
@@ -92,7 +92,7 @@ impl FFXIVAssetParserDatHeaderStandardBlock {
 }
 
 #[derive(Clone)]
-pub struct FFXIVAssetParserDatStandardHeader {
+pub struct StandardFile {
     pub header_size: u32,
     pub data_type: FFXIVAssetParserDatHeaderType,
     pub asset_size: u32,
@@ -100,10 +100,11 @@ pub struct FFXIVAssetParserDatStandardHeader {
     pub unknown2: u32,
     pub block_count: u32,
     pub blocks: Vec<FFXIVAssetParserDatHeaderStandardBlock>,
+    pub data: Vec<DatBlock>
 }
 
-impl FFXIVAssetParserDatStandardHeader {
-    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> FFXIVAssetParserDatStandardHeader {
+impl StandardFile {
+    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> StandardFile {
         data_file.offset_set(data_file_offset);
         let header_size = data_file.le_u32();
         let data_type = data_file.le_u32();
@@ -111,8 +112,9 @@ impl FFXIVAssetParserDatStandardHeader {
         let unknown1 = data_file.le_u32();
         let unknown2 = data_file.le_u32();
         let block_count = data_file.le_u32();
-        let blocks = (0..block_count).map(|i| FFXIVAssetParserDatHeaderStandardBlock::from_buffer(data_file)).collect();
-        FFXIVAssetParserDatStandardHeader {
+        let blocks: Vec<FFXIVAssetParserDatHeaderStandardBlock> = (0..block_count).map(|i| FFXIVAssetParserDatHeaderStandardBlock::from_buffer(data_file)).collect();
+        let data: Vec<DatBlock> = blocks.iter().map(|b| DatBlock::from_buffer_at(data_file, data_file_offset + header_size as u64 + b.offset as u64)).collect();
+        StandardFile {
             data_type: FFXIVAssetParserDatHeaderType::new(data_type).unwrap(),
             header_size,
             asset_size,
@@ -120,7 +122,12 @@ impl FFXIVAssetParserDatStandardHeader {
             unknown2,
             block_count,
             blocks,
+            data
         }
+    }
+
+    pub fn decompress(&self) -> Vec<u8> {
+        self.data.iter().map(|b|DatBlock::decompress(b)).collect::<Vec<Vec<u8>>>().concat()
     }
 }
 
@@ -135,7 +142,7 @@ pub struct FFXIVAssetParserDatBlock {
 }
 
 impl FFXIVAssetParserDatBlock {
-    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, dat_file_offset: u64, asset_dat_file_header: &FFXIVAssetParserDatStandardHeader, block_metadata: &FFXIVAssetParserDatHeaderStandardBlock) -> FFXIVAssetParserDatBlock {
+    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, dat_file_offset: u64, asset_dat_file_header: &StandardFile, block_metadata: &FFXIVAssetParserDatHeaderStandardBlock) -> FFXIVAssetParserDatBlock {
         let block_offset = data_file.offset_set(dat_file_offset + (asset_dat_file_header.header_size + block_metadata.offset) as u64);
         let header_size = data_file.le_u32();
         let header_version = data_file.le_u32();
@@ -156,7 +163,7 @@ impl FFXIVAssetParserDatBlock {
         }
     }
 
-    pub fn from_header<R: FFXIVBufferReader>(dat_file: &mut FFXIVBuffer<R>, asset_dat_file_header: &FFXIVAssetParserDatStandardHeader, dat_file_offset: u64) -> Vec<FFXIVAssetParserDatBlock> {
+    pub fn from_header<R: FFXIVBufferReader>(dat_file: &mut FFXIVBuffer<R>, asset_dat_file_header: &StandardFile, dat_file_offset: u64) -> Vec<FFXIVAssetParserDatBlock> {
         asset_dat_file_header.blocks.iter().map(|block_metadata| {
             FFXIVAssetParserDatBlock::new(dat_file, dat_file_offset, asset_dat_file_header, block_metadata)
         }).collect()
@@ -194,7 +201,7 @@ impl FFXIVAssetParserDatTextureHeaderBlock {
 }
 
 #[derive(Clone)]
-pub struct DatTexture {
+pub struct TextureFile {
     pub header_size: u32,
     pub data_type: FFXIVAssetParserDatHeaderType,
     pub asset_size: u32,
@@ -208,8 +215,8 @@ pub struct DatTexture {
 }
 
 
-impl DatTexture {
-    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> DatTexture {
+impl TextureFile {
+    pub fn new<R: FFXIVBufferReader>(data_file: &mut FFXIVBuffer<R>, data_file_offset: u64) -> TextureFile {
         data_file.offset_set(data_file_offset);
         let header_size = data_file.le_u32();
         let data_type = data_file.le_u32();
@@ -246,7 +253,7 @@ impl DatTexture {
         }).collect();
 
 
-        DatTexture {
+        TextureFile {
             data_type: FFXIVAssetParserDatHeaderType::new(data_type).unwrap(),
             header_size,
             asset_size,
@@ -368,7 +375,23 @@ impl DatBlock {
 
 //==================================================================================================
 
+#[derive(Clone)]
+pub enum FileType {
+    Empty,
+    Standard(StandardFile),
+    Model,
+    Texture(TextureFile),
+}
 
+impl FileType {
+    pub fn decompress(&self) -> Option<Vec<u8>> {
+        match self {
+            FileType::Texture(t) => Some(t.decompress()),
+            FileType::Standard(s) => Some(s.decompress()),
+            _ => None
+        }
+    }
+}
 
 //==================================================================================================
 
@@ -389,6 +412,10 @@ impl FFXIVAssetParserDatHeaderType {
             4 => Ok(FFXIVAssetParserDatHeaderType::Texture),
             _ => Err(format!("Data type '{}' not found.", n))
         }
+    }
+
+    pub fn check_at<R: FFXIVBufferReader>(buffer: &mut FFXIVBuffer<R>, block_offset: u64) -> Result<FFXIVAssetParserDatHeaderType, String> {
+        FFXIVAssetParserDatHeaderType::new(buffer.le_u32_at(block_offset + 0x04))
     }
 }
 
