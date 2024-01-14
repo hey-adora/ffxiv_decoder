@@ -1,11 +1,6 @@
 use positioned_io::{RandomAccessFile, ReadAt, ReadBytesAtExt};
 use std::mem;
 
-pub struct BufferFile {
-    file_handle: RandomAccessFile,
-    offset: u64,
-}
-
 macro_rules! read_impl {
     ($name: ident, $from_fn: ident, $t: ty) => {
         pub fn $name(&mut self) -> $t {
@@ -54,6 +49,11 @@ macro_rules! read_be_or_le_at_impl {
     }
 }
 
+pub struct BufferFile {
+    file_handle: RandomAccessFile,
+    offset: u64,
+}
+
 impl BufferFile {
     pub fn from_file_handle(file_handle: RandomAccessFile) -> BufferFile {
         BufferFile
@@ -97,6 +97,15 @@ impl BufferFile {
     read_at_impl!(be_i64_at, from_be_bytes, i64);
     read_at_impl!(be_u128_at, from_be_bytes, u128);
     read_at_impl!(be_i128_at, from_be_bytes, i128);
+
+    read_at_impl!(le_u16_at, from_le_bytes, u16);
+    read_at_impl!(le_i16_at, from_le_bytes, i16);
+    read_at_impl!(le_u32_at, from_le_bytes, u32);
+    read_at_impl!(le_i32_at, from_le_bytes, i32);
+    read_at_impl!(le_u64_at, from_le_bytes, u64);
+    read_at_impl!(le_i64_at, from_le_bytes, i64);
+    read_at_impl!(le_u128_at, from_le_bytes, u128);
+    read_at_impl!(le_i128_at, from_le_bytes, i128);
 
     read_be_or_le_impl!(be_le_u16, u16);
     read_be_or_le_impl!(be_le_i16, i16);
