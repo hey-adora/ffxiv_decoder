@@ -13,5 +13,5 @@ flate2 = {version = "1.0.26", featires = ["any_zlib"]}
 funty = "2.0.0"
 hot-lib-reloader = "0.6.5"
 hound = "3.5.0"
-iced = "0.9.0"
+iced = { versoin = "0.9.0"}
 num = "0.4.0"

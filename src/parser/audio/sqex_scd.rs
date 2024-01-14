@@ -1,6 +1,6 @@
 use crate::reader::Buffer;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct HexValue<T> {
     value: T,
     hex_list: Vec<u8>,
@@ -9,14 +9,14 @@ struct HexValue<T> {
     size: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Metadata {
-    pub init_signature: String,
-    pub init_version: i16,
-    pub init_big_endian: u8,
-    pub init_sscf_version: u8,
-    pub init_table_offset: i16,
-    pub init_file_size: u16,
+    pub signature: String,
+    pub version: i16,
+    pub big_endian: u8,
+    pub sscf_version: u8,
+    pub offset_to_table: i16,
+    pub file_size: u16,
     pub table_size: u16,
     pub table_size_of_sound_entry_offset: i16,
     pub table_header_entries: i16,
@@ -40,19 +40,19 @@ pub struct Metadata {
 
 impl Metadata {
     pub fn new(buffer: &mut Buffer) -> Metadata {
-        let init_signature = buffer.string(0x00, 0x08);
-        let init_version = buffer.i16(0x08);
-        let init_big_endian = buffer.u8(0x0c);
-        let init_sscf_version = buffer.u8(0x0d);
-        let init_table_offset = buffer.i16(0x0e);
-        let init_file_size = buffer.u16(0x10);
+        let signature = buffer.string(0x00, 0x08);
+        let version = buffer.i16(0x08);
+        let big_endian = buffer.u8(0x0c);
+        let sscf_version = buffer.u8(0x0d);
+        let offset_to_table = buffer.i16(0x0e);
+        let file_size = buffer.u16(0x10);
 
-        let table_size = buffer.u16(init_table_offset as usize);
-        let table_size_of_sound_entry_offset = buffer.i16((init_table_offset + 0x02) as usize);
-        let table_header_entries = buffer.i16((init_table_offset + 0x04) as usize);
-        let table_offset = buffer.u32((init_table_offset + 0x08) as usize);
-        let table_entry_to_offset = buffer.u32((init_table_offset + 0x0c) as usize);
-        let table_offset_to_table_2 = buffer.u32((init_table_offset + 0x0c) as usize);
+        let table_size = buffer.u16(offset_to_table as usize);
+        let table_size_of_sound_entry_offset = buffer.i16((offset_to_table + 0x02) as usize);
+        let table_header_entries = buffer.i16((offset_to_table + 0x04) as usize);
+        let table_offset = buffer.u32((offset_to_table + 0x08) as usize);
+        let table_entry_to_offset = buffer.u32((offset_to_table + 0x0c) as usize);
+        let table_offset_to_table_2 = buffer.u32((offset_to_table + 0x0c) as usize);
 
         let entry_offset = buffer.u32((table_entry_to_offset) as usize);
 
@@ -71,12 +71,12 @@ impl Metadata {
         let audio_offset = entry_offset + (entry_extra_data_size as u32) + 0x20;
 
         Metadata {
-            init_signature,
-            init_version,
-            init_big_endian,
-            init_sscf_version,
-            init_table_offset,
-            init_file_size,
+            signature,
+            version,
+            big_endian,
+            sscf_version,
+            offset_to_table,
+            file_size,
 
             table_size,
             table_size_of_sound_entry_offset,
