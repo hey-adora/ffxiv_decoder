@@ -68,7 +68,28 @@ pub mod scd_parser {
     //     }
     // }
 
+    // long msadpcm_bytes_to_samples(long stream_size, int frame_size, int channels) {
+    //     if (frame_size <= 0 || channels <= 0) return 0;
+    //         return (stream_size / frame_size) * (frame_size - (7-1)*channels) * 2 / channels + ((stream_size % frame_size) ? ((stream_size % frame_size) - (7-1)*channels) * 2 / channels : 0);
+    // }
+
     impl Parser {
+        fn msadpcm_bytes_to_samples(stream_size: i32, frame_size: i32, channels: i32) -> i32 {
+            if frame_size <= 0 || channels <= 0 {
+                return 0;
+            } else {
+                let fraction = stream_size % frame_size;
+                let mut add = 0;
+                if fraction != 0 {
+                    add = (fraction - (7 - 1) * channels) * 2 / channels
+                }
+                let output = (stream_size / frame_size) * (frame_size - (7 - 1) * channels) * 2
+                    / channels
+                    + add;
+                return output;
+            }
+        }
+
         pub fn read_file(file_path: &str) -> Vec<u8> {
             let file = File::open(file_path).expect("Failed to open file.");
             let mut reader = BufReader::new(file);
@@ -118,7 +139,20 @@ pub mod scd_parser {
             let frame_size = self.i16((entries_offset + 0x2c) as usize);
             let waveformatex = self.u16((entries_offset + 0x34) as usize);
 
-            println!("{}", frame_size);
+            let buffer_size_kb = 1;
+            let buffer_size = 1024 * buffer_size_kb;
+
+            let samples_num =
+                Parser::msadpcm_bytes_to_samples(stream_size, frame_size as i32, channels);
+
+            let samples_to_do: i32 = 0;
+            let to_do: i32 = 0;
+            let decode_pos_samples: i32 = 0;
+            let max_buffer_samples = buffer_size / (channels * 2);
+            let length_samples: i32 = samples_num;
+            let play_forever: i32 = 0;
+
+            println!("{}", max_buffer_samples);
 
             self.print_column_headers();
             for hex in &self.buffer {

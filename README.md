@@ -50,3 +50,69 @@ long msadpcm_bytes_to_samples(long stream_size, int frame_size, int channels) {
     return (stream_size / frame_size) * (frame_size - (7-1)*channels) * 2 / channels + ((stream_size % frame_size) ? ((stream_size % frame_size) - (7-1)*channels) * 2 / channels : 0);
 }
 ```
+
+```c
+static const int16_t msadpcm_coefs[7][2] = {  
+{ 256, 0 },  
+{ 512, -256 },  
+{ 0, 0 },  
+{ 192, 64 },  
+{ 240, 0 },  
+{ 460, -208 },  
+{ 392, -232 }  
+};
+
+
+
+stream->adpcm_coef[0] = msadpcm_coefs[0x282 ?? 0x07][0] //0
+stream->adpcm_coef[1] = msadpcm_coefs[0x282 ?? 0x07][1] //0
+stream->adpcm_scale = get_s16le(0x282+0x01); //16
+stream->adpcm_history1_16 = get_s16le(0x282+0x03);  // 6
+stream->adpcm_history2_16 = get_s16le(0x282+0x05);  //(-1) 65535 
+
+uint8_t byte = get_u8(frame+0x07+(i-2)/2);
+
+
+
+
+stream->adpcm_coef[0] = msadpcm_coefs[get_u8(frame+0x00) & 0x07][0]; // 255
+stream->adpcm_coef[1] = msadpcm_coefs[get_u8(frame+0x00) & 0x07][1]; // 0
+stream->adpcm_scale = get_s16le(frame+0x01); // 16
+stream->adpcm_history1_16 = get_s16le(frame+0x03); // 3
+stream->adpcm_history2_16 = get_s16le(frame+0x05); // (-4) 65532 
+```
+
+
+```cpp
+/******************************************************************************
+
+                              Online C++ Compiler.
+               Code, Compile, Run and Debug C++ program online.
+Write your code in this editor and press "Run" button to compile and execute it.
+
+*******************************************************************************/
+#include <bitset>
+#include <iostream>
+
+using namespace std;
+
+void print(char a) {
+    std::bitset<8> x(a);
+    std::cout << x << '\n';
+}
+
+char n(std::string a){
+    return stoi(a, 0, 2);
+}
+
+int main()
+{
+    print(n("1010") & n("1110"));
+    print(n("1010") | n("1110"));
+    print(n("1010") << 1);
+    print(n("1010") ^ n("1110"));
+    print(n("1010") ^~ n("1110"));
+    return 0;
+}
+
+```
