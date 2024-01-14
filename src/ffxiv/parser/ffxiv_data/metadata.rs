@@ -40,7 +40,7 @@ impl FFXIVFileMetadata {
         let file_path_components: Vec<Option<&str>> = file_path.components().map(|c| c.as_os_str().to_str()).collect();
 
         let file_name_bytes = file_name.as_bytes();
-        let file_name_regex =  Regex::new(r"^\d{6}\.(win32|ps3|ps4)\.(dat|index)\d*$").or(Err("Failed to create regex"))?;
+        let file_name_regex =  Regex::new(r"^(\d|[a-z]){6}\.(win32|ps3|ps4)\.(dat|index)\d*$").or(Err("Failed to create regex"))?;
         let file_name_valid = file_name_regex.captures(file_name_bytes).ok_or(format!("File name '{}' is invalid.", file_name))?;
 
         let category_str = String::from_utf8(file_name_bytes[0..2].to_vec()).or(Err("Failed to slice name to category"))?;

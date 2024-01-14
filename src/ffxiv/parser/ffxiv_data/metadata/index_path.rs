@@ -5,7 +5,7 @@ use crate::ffxiv::parser::ffxiv_data::metadata::category::Category;
 use crate::ffxiv::parser::ffxiv_data::metadata::platform::Platform;
 use crate::ffxiv::parser::ffxiv_data::metadata::repository::Repository;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexPath {
     pub full_path: String,
     pub file_extension: String,
@@ -23,7 +23,8 @@ impl IndexPath {
         IndexPath::new(path)
     }
     pub fn new(path: PathBuf) -> Result<IndexPath, String> {
-        let full_path = path.as_os_str().to_str().ok_or("Failed to convert path to str.")?;
+        let full_path = path.as_os_str().to_str().ok_or("Failed to convert path to str.")?.to_lowercase();
+        let path = PathBuf::from(&full_path);
         let data_name = path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let data_stem = path.file_stem().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let data_extension = path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;
@@ -37,7 +38,7 @@ impl IndexPath {
         let data_category_hash = IndexPath::hash(data_category.name.as_str());
         let data_name_hash = IndexPath::hash(data_name);
         let index1_hash = IndexPath::double_hash(data_folder, data_name_hash);
-        let index2_hash = IndexPath::hash(full_path);
+        let index2_hash = IndexPath::hash(&full_path);
 
         let platform = Platform::from_u32(0)?;
 

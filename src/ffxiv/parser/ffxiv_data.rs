@@ -43,6 +43,8 @@ impl FFXIVAssetFiles {
         let mut file_paths: Vec<PathBuf> = Vec::new();
         FFXIVAssetFiles::get_files(game_path, &mut file_paths);
 
+        let debug: Vec<&str> = file_paths.iter().map(|f|{f.to_str().unwrap()}).collect();
+
         let mut dat_files: Vec<FFXIVFileMetadata> = Vec::new();
         let mut index_files: Vec<FFXIVFileMetadata> = Vec::new();
         let mut index2_files: Vec<FFXIVFileMetadata> = Vec::new();

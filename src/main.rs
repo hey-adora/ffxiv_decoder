@@ -1,9 +1,42 @@
-use game_data_resolver::ffxiv::{FFXIV, test};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{hint, thread};
+use std::ops::Deref;
+use game_data_resolver::ffxiv::{FFXIV, test, test2};
 
 fn main() {
-    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "bgcommon/sound/hou/hou_spot_torch_s_ignite.scd");
+    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "music/ffxiv/BGM_PvP_Battle_02.scd");
+    //test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "sound/vfx/monster/se_vfx_monster_reming_revolvekick.scd");
+    //test2("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
+
+    // let mut o = AtomicUsize::new(1);
+    // let mut spinlock = Arc::new(o);
+    // let spinlock_clone = Arc::clone(&spinlock);
+    // let thread = thread::spawn(move|| {
+    //     spinlock_clone.store(0, Ordering::SeqCst);
+    // });
+    //
+    // // Wait for the other thread to release the lock
+    // while spinlock.load(Ordering::SeqCst) != 0 {
+    //     hint::spin_loop();
+    // }
+    //
+    // let mut spinlock_clone_clone = Arc::clone(&spinlock);
+    // let gga = &spinlock_clone_clone.deref().clone().get_mut();
+    // println!("{}", gga);
+    //
+    // let mut some_var = AtomicUsize::new(10);
+    // let a = some_var.get_mut();
+    // println!("{}", a);
+    // //assert_eq!(*some_var.get_mut(), 10);
+    // *some_var.get_mut() = 5;
+    // let a = some_var.get_mut();
+    // println!("{}", a);
+    // //assert_eq!(some_var.load(Ordering::SeqCst), 5);
+
+
     //let ffxiv = FFXIV::new("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
-    println!("damm");
+    //println!("damm");
 }
 
 // use std::arch::x86_64::_mm_crc32_u32;

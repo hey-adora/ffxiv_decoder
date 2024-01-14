@@ -125,15 +125,18 @@ pub fn decode(metadata: &SCD, buffer: &mut BufferWithLog) -> Vec<u8> {
     let mut output_buffer: Vec<u8> = Vec::new();
 
     let mut decoded: usize = offset;
-    //let length = metadata.entry_stream_size as usize;
-    let length = buffer.bytes.len();
+    let mut length = metadata.entry_stream_size as usize;
+    let buffer_len = buffer.bytes.len();
+    if length > buffer_len {
+        length = buffer_len
+    }
 
 
-    let mut current_frame_size = frame_size;
+    let current_frame_size = frame_size;
     if metadata.entry_channels == 1 {
         while decoded < length {
-            if decoded + frame_size > length {
-                current_frame_size = length - decoded;
+            if decoded + frame_size >= length {
+                break;
             }
 
             let block: &[u8] = buffer.vec(decoded, current_frame_size);
@@ -144,8 +147,8 @@ pub fn decode(metadata: &SCD, buffer: &mut BufferWithLog) -> Vec<u8> {
         }
     } else if metadata.entry_channels == 2 {
         while decoded < length {
-            if decoded + frame_size > length {
-                current_frame_size = length - decoded;
+            if decoded + frame_size >= length {
+                break;
             }
 
             let block: &[u8] = buffer.vec(decoded, current_frame_size);
