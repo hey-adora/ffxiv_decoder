@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use crate::ffxiv::parser::ffxiv_data::assets::index::{Index, Index1Data1Item, Index2Data1Item};
 use crate::ffxiv::parser::ffxiv_data::metadata::FFXIVFileMetadata;
+use crate::ffxiv::reader::buffer::BufferWithLog;
 
 pub enum ItemType {
     SCD(),
@@ -16,7 +17,11 @@ pub struct FFXIVAssetFiles {
     pub dat_files: Vec<FFXIVFileMetadata>,
     pub index_file: FFXIVFileMetadata,
     pub index2_file: FFXIVFileMetadata,
+    pub parsed_index: Index<Index1Data1Item>,
+    pub parsed_index2: Index<Index2Data1Item>,
 }
+
+
 
 
 
@@ -36,7 +41,7 @@ pub struct FFXIVIndex2File {
 }
 
 impl FFXIVAssetFiles {
-    pub fn new(game_path: &str) -> Vec<FFXIVAssetFiles> {
+    pub fn new(game_path: &str) -> Result<Vec<FFXIVAssetFiles>, String> {
         let mut file_paths: Vec<PathBuf> = Vec::new();
         FFXIVAssetFiles::get_files(game_path, &mut file_paths);
 
@@ -67,11 +72,20 @@ impl FFXIVAssetFiles {
                     continue;
                 }
 
+                let file = fs::read(&index_file.file_path).or(Err(format!("Error reading file {}", &index_file.file_path_str)))?;
+                let mut file_buffer = BufferWithLog::new(file);
+                let parsed_index = Index::from_index1(&mut file_buffer);
+
+                let file = fs::read(&index2_file.file_path).or(Err(format!("Error reading file {}", &index2_file.file_path_str)))?;
+                let mut file_buffer = BufferWithLog::new(file);
+                let parsed_index2 = Index::from_index2(&mut file_buffer);
 
                 file_groups.push( FFXIVAssetFiles {
                     index_file,
                     index2_file: (*index2_file).clone(),
-                    dat_files
+                    dat_files,
+                    parsed_index,
+                    parsed_index2
                 } )
             }
         }
@@ -79,7 +93,7 @@ impl FFXIVAssetFiles {
 
 
 
-        file_groups
+        Ok(file_groups)
     }
 
     fn get_files(input_path: &str, output: &mut Vec<PathBuf>) {

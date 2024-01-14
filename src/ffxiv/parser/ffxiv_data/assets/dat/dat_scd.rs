@@ -32,7 +32,7 @@
 // }
 
 
-use crate::ffxiv::reader::buffer::Buffer;
+use crate::ffxiv::reader::buffer::BufferWithLog;
 
 #[derive(Clone, Debug)]
 struct HexValue<T> {
@@ -73,7 +73,7 @@ pub struct SCD {
 }
 
 impl SCD {
-    pub fn new(buffer: &mut Buffer) -> SCD {
+    pub fn new(buffer: &mut BufferWithLog) -> SCD {
         let signature = buffer.string(0x00, 0x08);
         let version = buffer.i16(0x08);
         let big_endian = buffer.u8(0x0c);

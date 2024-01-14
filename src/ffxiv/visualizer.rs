@@ -1,7 +1,7 @@
 pub mod buffer;
 
 use std::collections::HashMap;
-use crate::ffxiv::reader::buffer::Buffer;
+use crate::ffxiv::reader::buffer::BufferWithLog;
 
 
 static COLUMN_COUNT: usize = 16;
@@ -71,7 +71,7 @@ fn print_space(start: usize, print_color_landmark: &ColorLandmark) {
     }
 }
 
-fn print_ascii(start: usize, buffer: &Buffer) {
+fn print_ascii(start: usize, buffer: &BufferWithLog) {
     let mut print_color_landmark = ColorLandmark {
         start,
         size: 0,
@@ -81,7 +81,7 @@ fn print_ascii(start: usize, buffer: &Buffer) {
     let start_index = start - COLUMN_COUNT;
     for (index, byte) in buffer.bytes[start_index..start].iter().enumerate() {
         let global_index = index + start_index;
-        print_color_picker(global_index, buffer.read_history.get(&global_index), &mut print_color_landmark);
+        print_color_picker(global_index, buffer.read_log.get(&global_index), &mut print_color_landmark);
         let letter = if *byte >= 32 && *byte <= 126 { *byte as char } else { '.' };
         print_color(format!("{}", letter).as_str(), PrintColor::Red, print_color_landmark.color);
         print_space(global_index, &print_color_landmark);

@@ -7,6 +7,7 @@ use crate::ffxiv::parser::ffxiv_data::metadata::FFXIVFileMetadata;
 mod decoder;
 mod parser;
 mod reader;
+mod visualizer;
 
 pub struct FFXIV {
     asset_files: Vec<FFXIVAssetFiles>
@@ -14,7 +15,9 @@ pub struct FFXIV {
 
 impl FFXIV {
     pub fn new(game_path: &str) -> FFXIV {
-        let asset_files: Vec<FFXIVAssetFiles> = FFXIVAssetFiles::new(game_path);
+        let asset_files: Vec<FFXIVAssetFiles> = FFXIVAssetFiles::new(game_path).unwrap();
+
+        
 
         FFXIV {
             asset_files

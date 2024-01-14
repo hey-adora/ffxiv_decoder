@@ -15,6 +15,7 @@ use crate::ffxiv::parser::ffxiv_data::metadata::repository::Repository;
 #[derive(Debug, Clone)]
 pub struct FFXIVFileMetadata {
     pub file_path: PathBuf,
+    pub file_path_str: String,
     pub file_name: String,
     pub file_stem: String,
     pub file_extension: String,
@@ -32,7 +33,7 @@ impl PartialEq for FFXIVFileMetadata {
 
 impl FFXIVFileMetadata {
     pub fn new(file_path: PathBuf) -> Result<FFXIVFileMetadata, String> {
-        let full_path = file_path.as_os_str().to_str().ok_or("Failed to convert path to str.")?;
+        let file_path_str = file_path.as_os_str().to_str().ok_or("Failed to convert path to str.")?;
         let file_name = file_path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let file_stem = file_path.file_stem().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;
         let file_extension = file_path.extension().ok_or("Failed to get file extension.")?.to_str().ok_or("Failed to get file extension as str.")?;
@@ -56,6 +57,7 @@ impl FFXIVFileMetadata {
 
         Ok(
             FFXIVFileMetadata {
+                file_path_str: String::from(file_path_str),
                 file_path: file_path.clone(),
                 file_name: String::from(file_name),
                 file_stem: String::from(file_stem),

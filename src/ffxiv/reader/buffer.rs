@@ -1,31 +1,30 @@
-pub mod visualizer;
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
 #[derive(Clone)]
-pub struct Buffer {
+pub struct BufferWithLog {
     pub bytes: Vec<u8>,
-    pub read_history: HashMap<usize, usize>,
+    pub read_log: HashMap<usize, usize>,
 }
 
-impl Buffer {
-    pub fn new(bytes: Vec<u8>) -> Buffer {
-        Buffer {
+impl BufferWithLog {
+    pub fn new(bytes: Vec<u8>) -> BufferWithLog {
+        BufferWithLog {
             bytes,
-            read_history: HashMap::new(),
+            read_log: HashMap::new(),
         }
     }
 
-    pub fn from_file(file_path: &str) -> Buffer {
+    pub fn from_file(file_path: &str) -> BufferWithLog {
         let file = File::open(file_path).expect("Failed to open file.");
         let mut reader = BufReader::new(file);
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).expect("Failed to read file.");
-        Buffer {
+        BufferWithLog {
             bytes,
-            read_history: HashMap::new(),
+            read_log: HashMap::new(),
         }
     }
 
@@ -75,7 +74,7 @@ impl Buffer {
     }
 
     pub fn vec(&mut self, start: usize, size: usize) -> &[u8] {
-        self.read_history.insert(start, size);
+        self.read_log.insert(start, size);
         &self.bytes[start..start + size]
     }
 }
