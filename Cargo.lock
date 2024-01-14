@@ -1533,6 +1533,7 @@ dependencies = [
  "iced",
  "num",
  "once_cell",
+ "positioned-io",
  "regex",
 ]
 
@@ -2947,6 +2948,17 @@ dependencies = [
  "log",
  "pin-project-lite",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "positioned-io"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09b9485cf7f528baf34edd811ec8283a168864912e11d0b7d3e0510738761114"
+dependencies = [
+ "byteorder",
+ "libc",
+ "winapi 0.3.9",
 ]
 
 [[package]]

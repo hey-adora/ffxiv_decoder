@@ -1,7 +1,8 @@
-use game_data_resolver::ffxiv::FFXIV;
+use game_data_resolver::ffxiv::{FFXIV, test};
 
 fn main() {
-    let ffxiv = FFXIV::new("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
+    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "bgcommon/sound/hou/hou_spot_torch_s_ignite.scd");
+    //let ffxiv = FFXIV::new("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
     println!("damm");
 }
 

@@ -18,6 +18,10 @@ pub struct IndexPath {
 }
 
 impl IndexPath {
+    pub fn from_str(path: &str) -> Result<IndexPath, String> {
+        let path = PathBuf::from(path);
+        IndexPath::new(path)
+    }
     pub fn new(path: PathBuf) -> Result<IndexPath, String> {
         let full_path = path.as_os_str().to_str().ok_or("Failed to convert path to str.")?;
         let data_name = path.file_name().ok_or("Failed to get file name.")?.to_str().ok_or("Failed to get file name as str.")?;

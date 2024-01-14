@@ -3,7 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use crc::{Crc, CRC_32_JAMCRC, Digest};
 use crate::ffxiv::parser::ffxiv_data::metadata::platform::Platform;
-use crate::ffxiv::reader::buffer::BufferWithLog;
+use crate::ffxiv::reader::buffer_with_log::BufferWithLog;
 
 
 // #[derive(Debug)]

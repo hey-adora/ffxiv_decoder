@@ -32,7 +32,7 @@
 // }
 
 
-use crate::ffxiv::reader::buffer::BufferWithLog;
+use crate::ffxiv::reader::buffer_with_log::BufferWithLog;
 
 #[derive(Clone, Debug)]
 struct HexValue<T> {

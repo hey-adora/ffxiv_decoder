@@ -1,5 +1,5 @@
 use crate::ffxiv::parser::ffxiv_data::assets::dat::dat_scd::SCD;
-use crate::ffxiv::reader::buffer::BufferWithLog;
+use crate::ffxiv::reader::buffer_with_log::BufferWithLog;
 
 const NIBBLE_TO_INT: [i16; 16] = [0, 1, 2, 3, 4, 5, 6, 7, -8, -7, -6, -5, -4, -3, -2, -1];
 const MSADPCM_STEPS: [i16; 16] = [
@@ -124,18 +124,19 @@ pub fn decode(metadata: &SCD, buffer: &mut BufferWithLog) -> Vec<u8> {
     let frame_size: usize = metadata.entry_frame_size as usize;
     let mut output_buffer: Vec<u8> = Vec::new();
 
-    let mut decoded: usize = 0;
-    let length = metadata.entry_stream_size as usize;
+    let mut decoded: usize = offset;
+    //let length = metadata.entry_stream_size as usize;
+    let length = buffer.bytes.len();
 
 
+    let mut current_frame_size = frame_size;
     if metadata.entry_channels == 1 {
         while decoded < length {
-            let mut current_frame_size = frame_size;
             if decoded + frame_size > length {
                 current_frame_size = length - decoded;
             }
 
-            let block: &[u8] = buffer.vec(offset + decoded, current_frame_size);
+            let block: &[u8] = buffer.vec(decoded, current_frame_size);
             let mut decoded_block = decode_mono_block(block);
             output_buffer.append(&mut decoded_block);
 
@@ -143,12 +144,11 @@ pub fn decode(metadata: &SCD, buffer: &mut BufferWithLog) -> Vec<u8> {
         }
     } else if metadata.entry_channels == 2 {
         while decoded < length {
-            let mut current_frame_size = frame_size;
             if decoded + frame_size > length {
                 current_frame_size = length - decoded;
             }
 
-            let block: &[u8] = buffer.vec(offset + decoded, current_frame_size);
+            let block: &[u8] = buffer.vec(decoded, current_frame_size);
             let mut decoded_block = decode_stereo_block(block);
             output_buffer.append(&mut decoded_block);
 
