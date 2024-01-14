@@ -1,11 +1,11 @@
 #[derive(Debug, Clone)]
-pub struct Platform {
+pub struct AssetFilePlatform {
     pub name: String,
     pub id: u32
 }
 
-impl Platform {
-    pub fn from_u32(n: u32) -> Result<Platform, String> {
+impl AssetFilePlatform {
+    pub fn from_u32(n: u32) -> Result<AssetFilePlatform, String> {
         let name = match n {
             0 => "win32",
             1 => "ps3",
@@ -15,13 +15,13 @@ impl Platform {
             }
         };
 
-        Ok(Platform {
+        Ok(AssetFilePlatform {
             name: String::from(name),
             id: n,
         })
     }
 
-    pub fn from_str(platform: &str) -> Result<Platform, String> {
+    pub fn from_str(platform: &str) -> Result<AssetFilePlatform, String> {
         let id = match platform {
             "win32" => 0u32,
             "ps3" => 1u32,
@@ -31,18 +31,18 @@ impl Platform {
             }
         };
 
-        Ok(Platform {
+        Ok(AssetFilePlatform {
             name: String::from(platform),
             id,
         })
     }
 
-    pub fn from_hex_str(platform_hex_str: &str) -> Result<Platform, String> {
+    pub fn from_hex_str(platform_hex_str: &str) -> Result<AssetFilePlatform, String> {
         let expansion_id: u32 = u32::from_str_radix(platform_hex_str, 16).or(Err(format!("Failed to convert '{}' to number.", platform_hex_str)))?;
-        Platform::from_u32(expansion_id)
+        AssetFilePlatform::from_u32(expansion_id)
     }
 
-    pub fn from_str_contains(string: &str) -> Result<Platform, String> {
+    pub fn from_str_contains(string: &str) -> Result<AssetFilePlatform, String> {
         let mut name: String = String::new();
         let mut id = 0;
         if string.contains("win32") {
@@ -58,7 +58,7 @@ impl Platform {
         }
 
         Ok(
-            Platform {
+            AssetFilePlatform {
                 name,
                 id
             }

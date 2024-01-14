@@ -2,20 +2,8 @@ use std::fmt::Error;
 use std::io;
 use std::path::{Path, PathBuf};
 use crc::{Crc, CRC_32_JAMCRC, Digest};
-use crate::ffxiv::parser::ffxiv_data::metadata::platform::Platform;
-use crate::ffxiv::reader::buffer_with_log::BufferWithLog;
-
-
-// #[derive(Debug)]
-// pub struct IndexData1 {
-//     pub index1_hash: u64,
-//     pub index2_hash: u32,
-//     pub data_repo: String,
-//     pub data_category: String,
-//     pub file_path: PathBuf,
-//     pub file_offset: u64,
-// }
-
+use crate::ffxiv::buffer_vec::BufferVec;
+use crate::ffxiv::asset_file_platform::AssetFilePlatform;
 
 #[derive(Debug)]
 pub struct Index1Data1Item {
@@ -35,9 +23,9 @@ pub struct Index2Data1Item {
 
 
 #[derive(Debug)]
-pub struct Index<T> {
+pub struct AssetIndexFile<T> {
     pub file_signature: String,
-    pub file_platform: Platform,
+    pub file_platform: AssetFilePlatform,
     pub file_header_offset: u32,
     pub file_version: u32,
     pub file_type: u32,
@@ -56,19 +44,10 @@ pub struct Index<T> {
     pub data1: Vec<T>,
 }
 
-impl IndexParser<Index1Data1Item> for Index<Index1Data1Item> {
-
-}
-
-
-impl IndexParser<Index2Data1Item> for Index<Index2Data1Item> {
-
-}
-
-trait IndexParser<T> {
-    fn parse_header(buffer: &mut BufferWithLog) -> Index<T> {
+trait AssetIndexFileParser<T> {
+    fn parse_header(buffer: &mut BufferVec) -> AssetIndexFile<T> {
         let file_signature = buffer.string(0x00, 0x08);
-        let file_platform = Platform::from_u32(buffer.u8(0x08) as u32).unwrap();
+        let file_platform = AssetFilePlatform::from_u32(buffer.u8(0x08) as u32).unwrap();
         let file_header_offset = buffer.u32(0x0C);
         let file_version = buffer.u32(0x10);
         let file_type = buffer.u32(0x10);
@@ -100,7 +79,7 @@ trait IndexParser<T> {
         let mut data1: Vec<T> = Vec::new();
 
 
-        Index {
+        AssetIndexFile {
             file_signature,
             file_platform,
             file_header_offset,
@@ -123,14 +102,23 @@ trait IndexParser<T> {
     }
 }
 
-impl Index<Index1Data1Item> {
-    pub fn from_index1(buffer: &mut BufferWithLog) -> Index<Index1Data1Item> {
-        let mut index = Index::parse_header(buffer);
-        Index::parse_index1_data(buffer, &mut index.data1, index.header_data_offset as usize, index.header_data_size as usize);
+impl AssetIndexFileParser<Index1Data1Item> for AssetIndexFile<Index1Data1Item> {
+
+}
+
+
+impl AssetIndexFileParser<Index2Data1Item> for AssetIndexFile<Index2Data1Item> {
+
+}
+
+impl AssetIndexFile<Index1Data1Item> {
+    pub fn from_index1(buffer: &mut BufferVec) -> AssetIndexFile<Index1Data1Item> {
+        let mut index = AssetIndexFile::parse_header(buffer);
+        AssetIndexFile::parse_index1_data(buffer, &mut index.data1, index.header_data_offset as usize, index.header_data_size as usize);
         index
     }
 
-    fn parse_index1_data(buffer: &mut BufferWithLog, output: &mut Vec<Index1Data1Item>, header_data_offset: usize, header_data_size: usize) {
+    fn parse_index1_data(buffer: &mut BufferVec, output: &mut Vec<Index1Data1Item>, header_data_offset: usize, header_data_size: usize) {
         for offset_line in (0..header_data_size).step_by(16) {
             let offset = (header_data_offset + offset_line) as usize;
             let hash = buffer.u64(offset);
@@ -147,14 +135,14 @@ impl Index<Index1Data1Item> {
     }
 }
 
-impl Index<Index2Data1Item> {
-    pub fn from_index2(buffer: &mut BufferWithLog) -> Index<Index2Data1Item> {
-        let mut index = Index::parse_header(buffer);
-        Index::parse_index2_data(buffer, &mut index.data1, index.header_data_offset as usize, index.header_data_size as usize);
+impl AssetIndexFile<Index2Data1Item> {
+    pub fn from_index2(buffer: &mut BufferVec) -> AssetIndexFile<Index2Data1Item> {
+        let mut index = AssetIndexFile::parse_header(buffer);
+        AssetIndexFile::parse_index2_data(buffer, &mut index.data1, index.header_data_offset as usize, index.header_data_size as usize);
         index
     }
 
-    fn parse_index2_data(buffer: &mut BufferWithLog, output: &mut Vec<Index2Data1Item>, header_data_offset: usize, header_data_size: usize) {
+    fn parse_index2_data(buffer: &mut BufferVec, output: &mut Vec<Index2Data1Item>, header_data_offset: usize, header_data_size: usize) {
         for offset_line in (0..header_data_size).step_by(8) {
             let offset = (header_data_offset + offset_line) as usize;
             let hash = buffer.u32(offset);

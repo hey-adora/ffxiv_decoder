@@ -4,27 +4,24 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 
 #[derive(Clone)]
-pub struct BufferWithLog {
+pub struct BufferVec {
     pub bytes: Vec<u8>,
-    pub read_log: HashMap<usize, usize>,
 }
 
-impl BufferWithLog {
-    pub fn new(bytes: Vec<u8>) -> BufferWithLog {
-        BufferWithLog {
+impl BufferVec {
+    pub fn new(bytes: Vec<u8>) -> BufferVec {
+        BufferVec {
             bytes,
-            read_log: HashMap::new(),
         }
     }
 
-    pub fn from_file(file_path: &str) -> BufferWithLog {
+    pub fn from_file(file_path: &str) -> BufferVec {
         let file = File::open(file_path).expect("Failed to open file.");
         let mut reader = BufReader::new(file);
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).expect("Failed to read file.");
-        BufferWithLog {
+        BufferVec {
             bytes,
-            read_log: HashMap::new(),
         }
     }
 
@@ -74,7 +71,6 @@ impl BufferWithLog {
     }
 
     pub fn vec(&mut self, start: usize, size: usize) -> &[u8] {
-        self.read_log.insert(start, size);
         &self.bytes[start..start + size]
     }
 }

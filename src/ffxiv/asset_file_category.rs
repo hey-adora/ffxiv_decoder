@@ -1,16 +1,16 @@
 #[derive(Debug, Clone)]
-pub struct Category {
+pub struct AssetFileCategory {
     pub name: String,
     pub id: u32
 }
 
-impl Category {
-    pub fn from_hex_str(cat_hex_str: &str) -> Result<Category, String> {
+impl AssetFileCategory {
+    pub fn from_hex_str(cat_hex_str: &str) -> Result<AssetFileCategory, String> {
         let expansion_id: u32 = u32::from_str_radix(cat_hex_str, 16).or(Err(format!("Failed to convert '{}' to number.", cat_hex_str)))?;
-        Category::from_number(expansion_id)
+        AssetFileCategory::from_number(expansion_id)
     }
 
-    pub fn from_str(cat: &str) -> Result<Category, String> {
+    pub fn from_str(cat: &str) -> Result<AssetFileCategory, String> {
         let id = match cat {
             "common" => 0x00,
             "bgcommon" => 0x01,
@@ -33,7 +33,7 @@ impl Category {
         };
 
         Ok(
-            Category {
+            AssetFileCategory {
                 name: String::from(cat),
                 id
             }
@@ -42,7 +42,7 @@ impl Category {
 
     }
 
-    pub fn from_number(cat: u32) -> Result<Category, String> {
+    pub fn from_number(cat: u32) -> Result<AssetFileCategory, String> {
         let name = match cat {
             0x00 => "common",
             0x01 => "bgcommon",
@@ -65,7 +65,7 @@ impl Category {
         };
 
         Ok(
-            Category {
+            AssetFileCategory {
                 name: String::from(name),
                 id: cat
             }
