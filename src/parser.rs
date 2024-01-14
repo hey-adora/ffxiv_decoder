@@ -1,1 +1,1 @@
-pub mod sqex_scd;
+pub mod audio;

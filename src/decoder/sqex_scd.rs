@@ -1,5 +1,5 @@
 use crate::reader::Buffer;
-use crate::parser::sqex_scd::Metadata;
+use crate::parser::audio::sqex_scd::Metadata;
 
 const NIBBLE_TO_INT: [i16; 16] = [0, 1, 2, 3, 4, 5, 6, 7, -8, -7, -6, -5, -4, -3, -2, -1];
 const MSADPCM_STEPS: [i16; 16] = [
