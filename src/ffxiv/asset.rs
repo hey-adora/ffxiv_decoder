@@ -4,7 +4,7 @@ use crate::ffxiv::asset::exh::{EXHLang, EXH};
 use crate::ffxiv::asset::exl::EXL;
 use crate::ffxiv::buffer::Buffer;
 use crate::ffxiv::path::{DatPath, PathError};
-use crate::ffxiv::{AssetFindError, FileType, FileTypeError, FFXIV};
+use crate::ffxiv::{AssetFindError, FileType, FileTypeDecompressError, FFXIV};
 use thiserror::Error;
 
 use self::scd::AssetSCDFile;

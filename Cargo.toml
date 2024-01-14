@@ -1,5 +1,5 @@
 [package]
-name = "game_data_resolver"
+name = "ffxiv_decoder"
 version = "0.1.0"
 edition = "2021"
 

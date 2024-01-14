@@ -1,11 +1,9 @@
 use crc::{Crc, CRC_32_JAMCRC};
-use egui::Key::N;
 use regex::bytes::Regex as RegByte;
-use std::fmt::{Display, Formatter};
-use std::io::ErrorKind;
+use std::fmt::Display;
 use std::path::PathBuf;
 
-use crate::ffxiv::metadata::{Category, Chunk, MetadataError, Platform, Repository};
+use crate::ffxiv::metadata::{Category, Chunk, Platform, Repository};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]

@@ -1122,6 +1122,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffxiv_decoder"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "copypasta",
+ "crc",
+ "eframe",
+ "egui",
+ "env_logger",
+ "flate2",
+ "glium",
+ "imgui",
+ "imgui-glium-renderer",
+ "imgui-winit-support",
+ "indicatif",
+ "num",
+ "positioned-io",
+ "rayon",
+ "regex",
+ "thiserror",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1263,29 +1286,6 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
-]
-
-[[package]]
-name = "game_data_resolver"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "copypasta",
- "crc",
- "eframe",
- "egui",
- "env_logger",
- "flate2",
- "glium",
- "imgui",
- "imgui-glium-renderer",
- "imgui-winit-support",
- "indicatif",
- "num",
- "positioned-io",
- "rayon",
- "regex",
- "thiserror",
 ]
 
 [[package]]

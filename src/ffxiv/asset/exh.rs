@@ -1,7 +1,5 @@
-use std::fmt::{Display, Formatter};
-use egui::epaint::ahash::HashMap;
 use crate::ffxiv::buffer::{Buffer, BufferReader};
-
+use std::fmt::{Display, Formatter};
 
 // pub fn sudo_check(auth: &Auth, requires_sudo: Option<u32>, user_id: &str) -> bool {
 //     if let Some(required_sudo_group) = requires_sudo {
@@ -51,18 +49,26 @@ pub struct EXH {
 
 impl Display for EXH {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.columns.iter().map(|c| c.kind.to_string()).collect::<Vec<String>>().join(","))
+        write!(
+            f,
+            "{}",
+            self.columns
+                .iter()
+                .map(|c| c.kind.to_string())
+                .collect::<Vec<String>>()
+                .join(",")
+        )
     }
 }
 
 pub struct EXHColumn {
     pub kind: EXHColumnKind,
-    pub offset_to_offset: u16
+    pub offset_to_offset: u16,
 }
 
 pub struct AssetEXHFileRow {
     pub start_id: u32,
-    pub row_count: u32
+    pub row_count: u32,
 }
 
 #[derive(PartialEq, Eq)]
@@ -74,7 +80,7 @@ pub enum EXHLang {
     French = 4,
     ChineseSimplified = 5,
     ChineseTraditional = 6,
-    Korean = 7
+    Korean = 7,
 }
 
 pub enum EXHColumnKind {
@@ -90,7 +96,7 @@ pub enum EXHColumnKind {
     Float32 = 0x09,
     Int64 = 0x0A,
     UInt64 = 0x0B,
-    UNK2 = 0x0C, // unused?
+    UNK2 = 0x0C,        // unused?
     PackedBool0 = 0x19, // 0 is read like data & 1, 1 is like data & 2, 2 = data & 4, etc...
     PackedBool1 = 0x1A,
     PackedBool2 = 0x1B,
@@ -99,37 +105,39 @@ pub enum EXHColumnKind {
     PackedBool5 = 0x1E,
     PackedBool6 = 0x1F,
     PackedBool7 = 0x20,
-
 }
 
 impl Display for EXHColumnKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            EXHColumnKind::String => String::from("STRING"),
-            EXHColumnKind::Bool => String::from("BOOL"),
-            EXHColumnKind::Int8 => String::from("INT8"),
-            EXHColumnKind::UInt8 => String::from("UINT8"),
-            EXHColumnKind::Int16 => String::from("INT16"),
-            EXHColumnKind::UInt16 => String::from("UINT16"),
-            EXHColumnKind::Int32 => String::from("INT32"),
-            EXHColumnKind::UInt32 => String::from("UINT32"),
-            EXHColumnKind::UNK1 => String::from("UNKNOWN"),
-            EXHColumnKind::Float32 => String::from("FLOAT32"),
-            EXHColumnKind::Int64 => String::from("INT64"),
-            EXHColumnKind::UInt64 => String::from("UINT64"),
-            EXHColumnKind::UNK2 => String::from("UNKNOWN"),
-            EXHColumnKind::PackedBool0 => String::from("BOOL"),
-            EXHColumnKind::PackedBool1 => String::from("BOOL"),
-            EXHColumnKind::PackedBool2 => String::from("BOOL"),
-            EXHColumnKind::PackedBool3 => String::from("BOOL"),
-            EXHColumnKind::PackedBool4 => String::from("BOOL"),
-            EXHColumnKind::PackedBool5 => String::from("BOOL"),
-            EXHColumnKind::PackedBool6 => String::from("BOOL"),
-            EXHColumnKind::PackedBool7 => String::from("BOOL"),
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                EXHColumnKind::String => String::from("STRING"),
+                EXHColumnKind::Bool => String::from("BOOL"),
+                EXHColumnKind::Int8 => String::from("INT8"),
+                EXHColumnKind::UInt8 => String::from("UINT8"),
+                EXHColumnKind::Int16 => String::from("INT16"),
+                EXHColumnKind::UInt16 => String::from("UINT16"),
+                EXHColumnKind::Int32 => String::from("INT32"),
+                EXHColumnKind::UInt32 => String::from("UINT32"),
+                EXHColumnKind::UNK1 => String::from("UNKNOWN"),
+                EXHColumnKind::Float32 => String::from("FLOAT32"),
+                EXHColumnKind::Int64 => String::from("INT64"),
+                EXHColumnKind::UInt64 => String::from("UINT64"),
+                EXHColumnKind::UNK2 => String::from("UNKNOWN"),
+                EXHColumnKind::PackedBool0 => String::from("BOOL"),
+                EXHColumnKind::PackedBool1 => String::from("BOOL"),
+                EXHColumnKind::PackedBool2 => String::from("BOOL"),
+                EXHColumnKind::PackedBool3 => String::from("BOOL"),
+                EXHColumnKind::PackedBool4 => String::from("BOOL"),
+                EXHColumnKind::PackedBool5 => String::from("BOOL"),
+                EXHColumnKind::PackedBool6 => String::from("BOOL"),
+                EXHColumnKind::PackedBool7 => String::from("BOOL"),
+            }
+        )
     }
 }
-
 
 impl EXHColumnKind {
     pub fn sizes(kind: &EXHColumnKind) -> u64 {
@@ -159,8 +167,6 @@ impl EXHColumnKind {
     }
 }
 
-
-
 impl EXH {
     pub fn new<R: BufferReader>(buffer: &mut Buffer<R>) -> EXH {
         buffer.offset_set(0);
@@ -183,9 +189,10 @@ impl EXH {
         buffer.offset_skip(0x08);
 
         let columns: Vec<EXHColumn> = (0..column_count).map(|i| EXHColumn::new(buffer)).collect();
-        let rows: Vec<AssetEXHFileRow> = (0..page_count).map(|i| AssetEXHFileRow::new(buffer)).collect();
+        let rows: Vec<AssetEXHFileRow> = (0..page_count)
+            .map(|i| AssetEXHFileRow::new(buffer))
+            .collect();
         let languages: Vec<EXHLang> = (0..language_count).map(|i| EXHLang::new(buffer)).collect();
-
 
         EXH {
             signature,
@@ -225,7 +232,7 @@ impl EXHLang {
             5 => EXHLang::ChineseSimplified,
             6 => EXHLang::ChineseTraditional,
             7 => EXHLang::Korean,
-            _ => panic!("Langauge not found")
+            _ => panic!("Langauge not found"),
         }
     }
 }
@@ -238,16 +245,20 @@ impl EXHLang {
 
 impl Display for EXHLang {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            EXHLang::None => String::from(""),
-            EXHLang::Japanese => String::from("ja"),
-            EXHLang::English => String::from("en"),
-            EXHLang::German => String::from("de"),
-            EXHLang::French => String::from("fr"),
-            EXHLang::ChineseSimplified => String::from("zh"),
-            EXHLang::ChineseTraditional => String::from("zh"),
-            EXHLang::Korean => String::from("ko"),
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                EXHLang::None => String::from(""),
+                EXHLang::Japanese => String::from("ja"),
+                EXHLang::English => String::from("en"),
+                EXHLang::German => String::from("de"),
+                EXHLang::French => String::from("fr"),
+                EXHLang::ChineseSimplified => String::from("zh"),
+                EXHLang::ChineseTraditional => String::from("zh"),
+                EXHLang::Korean => String::from("ko"),
+            }
+        )
     }
 }
 
@@ -277,7 +288,7 @@ impl EXHColumn {
                 0x1E => EXHColumnKind::PackedBool5,
                 0x1F => EXHColumnKind::PackedBool6,
                 0x20 => EXHColumnKind::PackedBool7,
-                _ => panic!("Asset column kind '{}'", kind)
+                _ => panic!("Asset column kind '{}'", kind),
             },
             offset_to_offset: buffer.be_u16(),
         }

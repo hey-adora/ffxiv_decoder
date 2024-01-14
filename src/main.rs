@@ -1,8 +1,8 @@
-use game_data_resolver::ffxiv::asset::exd::EXD;
-use game_data_resolver::ffxiv::asset::exh::{EXHLang, EXH};
-use game_data_resolver::ffxiv::buffer::Buffer;
-use game_data_resolver::ffxiv::path::DatPath;
-use game_data_resolver::ffxiv::FFXIV;
+use ffxiv_decoder::ffxiv::asset::exd::EXD;
+use ffxiv_decoder::ffxiv::asset::exh::{EXHLang, EXH};
+use ffxiv_decoder::ffxiv::buffer::Buffer;
+use ffxiv_decoder::ffxiv::path::DatPath;
+use ffxiv_decoder::ffxiv::FFXIV;
 use std::fs;
 
 fn main() {
@@ -15,7 +15,7 @@ fn main() {
     // let a = DatPath::new("bg/ex1/03_abr_a2/dun/a2d2/grass/008_001_017_l.ggd").unwrap();
     // println!("{}", a.index1_hash);
     let paths =
-        FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
+        FFXIV::get_decoded_hash_names("./resources/hash_names.txt")
             .unwrap();
 
     println!("done");
