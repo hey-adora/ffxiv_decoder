@@ -6,8 +6,7 @@ use game_data_resolver::ffxiv::FFXIV;
 use std::fs;
 
 fn main() {
-    let ffxiv =
-        FFXIV::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
+    let ffxiv = FFXIV::new("/home/night/Games/FINAL FANTASY XIV Online/FINAL FANTASY XIV Online");
     //let paths = FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt");
     //ffxiv.export_all_csv("/home/night/Documents/GitHub/sqex_scd_file_parser/media/csv").unwrap();
     //FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")

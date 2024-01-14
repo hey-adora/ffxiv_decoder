@@ -281,8 +281,19 @@ impl FFXIV {
 
         dats_hash.par_iter().for_each(|(dat, items)| {
             let bar = bar.add(ProgressBar::new(items.len() as u64));
+            let style = (dat.clone(), "█  ", "white");
+            bar.set_style(
+                ProgressStyle::with_template(&format!(
+                    "{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}",
+                    style.2
+                ))
+                .unwrap()
+                .progress_chars(style.1),
+            );
+            bar.set_prefix(style.0);
             let mut buffer = Buffer::from_file_path(dat);
-            for (index, item) in items.iter().enumerate() {
+            for (i, item) in items.iter().enumerate() {
+                bar.set_message(format!("{}/{}", i + 1, i_max));
                 let org_name = names.get(&item.hash);
                 let item_name: String;
                 if let Some(org_name) = org_name {
@@ -303,6 +314,8 @@ impl FFXIV {
                 }
                 bar.inc(1);
             }
+
+            bar.set_message(format!("{}/{}", i_max, i_max));
         });
 
         // let dat_chunks: Vec<(usize, (&String, &Vec<Index1Data1Item>))> =
