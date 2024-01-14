@@ -73,27 +73,38 @@ impl DatPath {
         let path = PathBuf::from(&full_path);
         let (path_stem, path_stem_pos, path_extension, path_extension_position) =
             split_rev(&full_path, '/', '.').ok_or(PathError::Invalid(format!(
-                "Failed to get file name and extension from {}",
+                "Failed to get file name and extension from '{}'",
                 &full_path
             )))?;
         let path_name = &full_path[path_stem_pos..];
         let path_dir = &full_path[..path_stem_pos];
 
-        let (cat_com, cat_pos, repo_com, repo_pos) =
-            split(&full_path, '/', '/').ok_or(PathError::Invalid(format!(
-                "Failed to get file name and extension from {}",
-                &full_path
-            )))?;
+        let (cat, repo) = split(&full_path, '/', '/');
 
-        let data_category = Category::from_str(cat_com)?;
-        let data_repo = Repository::from_str(repo_com)?;
+        let (cat, cat_pos) = cat.ok_or(PathError::General(format!(
+            "Failed to get category from '{}'",
+            &full_path
+        )))?;
+        let data_category = Category::from_str(cat).or_else(|e| {
+            Err(PathError::General(format!(
+                "{} from '{}'",
+                e.to_string(),
+                &full_path
+            )))
+        })?;
+
+        let data_repo = if let Some((rep, rep_pos)) = repo {
+            Repository::from_str(rep)
+        } else {
+            Repository::default()
+        };
 
         let data_folder = DatPath::hash(path_dir);
         //let data_category_hash = AssetPath::hash(data_category.name.as_str());
         let data_name_hash = DatPath::hash(path_name);
         let data_platform = Platform::from_u32(0).or_else(|e| {
             Err(PathError::General(format!(
-                "{} from {}",
+                "{} from '{}'",
                 e.to_string(),
                 &full_path
             )))
@@ -258,9 +269,8 @@ pub enum PathError {
     #[error("File Path: `{0}`")]
     Invalid(String),
 
-    #[error("Failed to parse metadata: `{0}`")]
-    Metadata(#[from] MetadataError),
-
+    // #[error("Failed to parse metadata: `{0}`")]
+    // Metadata(#[from] MetadataError),
     #[error("File Path Regex: `{0}`")]
     General(String),
 }
@@ -269,15 +279,23 @@ pub fn split<'a>(
     str: &'a str,
     split_b: char,
     split_a: char,
-) -> Option<(&'a str, usize, &'a str, usize)> {
+) -> (Option<(&'a str, usize)>, Option<(&'a str, usize)>) {
     let len = str.len();
-    let pos_a = str.chars().position(|c| c == split_a)?;
-    let pos_b = str.chars().skip(pos_a + 1).position(|c| c == split_b)?;
-    // let pos_a: usize = len - pos_a;
-    let pos_b: usize = pos_b + pos_a;
-    let a: &'a str = &str[..pos_a];
-    let b: &'a str = &str[pos_a + 1..pos_b + 1];
-    Some((b, pos_b, a, pos_a))
+    let pos_a = str.chars().position(|c| c == split_a);
+    if let Some(pos_a) = pos_a {
+        let pos_b = str.chars().skip(pos_a + 1).position(|c| c == split_b);
+        let a: &'a str = &str[..pos_a];
+        if let Some(pos_b) = pos_b {
+            let pos_b: usize = pos_b + pos_a;
+            let b: &'a str = &str[pos_a + 1..pos_b + 1];
+            return (Some((a, pos_a)), Some((b, pos_b)));
+        } else {
+            let a: &'a str = &str[..pos_a];
+            return (Some((a, pos_a)), None);
+        }
+    } else {
+        return (None, None);
+    }
 }
 
 pub fn split_rev<'a>(

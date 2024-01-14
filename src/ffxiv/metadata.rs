@@ -144,6 +144,33 @@ pub struct Repository {
     pub id: u32,
 }
 
+impl Default for Repository {
+    fn default() -> Self {
+        Repository {
+            name: String::from("ffxiv"),
+            id: 0,
+        }
+    }
+}
+
+// impl From<Option<&str>> for Repository {
+//     fn from(value: Option<&str>) -> Self {
+//         if let Some(repo) = value {
+//             if &repo[..2] == "ex" {
+//                 let expansion: &str = &repo[2..];
+//                 let expansion = expansion.parse();
+//                 if let Ok(expansion) = expansion {
+//                     return Repository {
+//                         name: repo.to_owned(),
+//                         id: expansion,
+//                     };
+//                 }
+//             }
+//         }
+//
+//     }
+// }
+
 impl Repository {
     pub fn from_hex_str(repo_hex_str: &str) -> Result<Repository, MetadataError> {
         let expansion_id: u32 = u32::from_str_radix(repo_hex_str, 16).or(Err(
@@ -151,32 +178,39 @@ impl Repository {
         ))?;
         Ok(Repository::from_u32(expansion_id))
     }
-
-    pub fn from_str(repo: &str) -> Result<Repository, MetadataError> {
-        if repo.len() < 3 {
-            Err(MetadataError::Invalid(format!(
-                "Invalid repo string: {}",
-                repo
-            )))
-        } else if &repo[..2] == "ex" {
+    pub fn from_str(repo: &str) -> Self {
+        if &repo[..2] == "ex" {
             let expansion: &str = &repo[2..];
-            let expansion: u32 = expansion.parse().or(Err(MetadataError::Invalid(format!(
-                "invalid string, '{}' = ex<INVALID NUMBER>",
-                repo
-            ))))?;
-            let rep = Repository {
-                name: repo.to_owned(),
-                id: expansion,
-            };
-            Ok(rep)
-        } else {
-            let rep = Repository {
-                name: String::from("ffxiv"),
-                id: 0,
-            };
-            Ok(rep)
+            let expansion = expansion.parse();
+            if let Ok(expansion) = expansion {
+                return Repository {
+                    name: repo.to_owned(),
+                    id: expansion,
+                };
+            }
         }
+        Repository::default()
     }
+    // pub fn from_str(repo: &str) -> Result<Repository, MetadataError> {
+    //     if &repo[..2] == "ex" {
+    //         let expansion: &str = &repo[2..];
+    //         let expansion: u32 = expansion.parse().or(Err(MetadataError::Invalid(format!(
+    //             "invalid string, '{}' = ex<INVALID NUMBER>",
+    //             repo
+    //         ))))?;
+    //         let rep = Repository {
+    //             name: repo.to_owned(),
+    //             id: expansion,
+    //         };
+    //         Ok(rep)
+    //     } else {
+    //         let rep = Repository {
+    //             name: String::from("ffxiv"),
+    //             id: 0,
+    //         };
+    //         Ok(rep)
+    //     }
+    // }
 
     pub fn from_u32(number: u32) -> Repository {
         let mut expansion = String::new();

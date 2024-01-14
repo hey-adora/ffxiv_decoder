@@ -134,69 +134,81 @@ impl FFXIV {
     }
 
     pub fn get_paths(paths_file: &str) -> Result<HashMap<u64, DatPath>, AssetPathsError> {
-        let path_hashes: HashMap<u64, DatPath> = HashMap::new();
-
-        let mut thread_handles = vec![];
-        let mut thread_count = std::thread::available_parallelism()
-            .or_else(|e| Err(AssetPathsError::ThreadCount(e.to_string())))?
-            .get();
-        if thread_count < 2 {
-            thread_count = 2;
-        }
-
         let paths_file =
             fs::read_to_string(paths_file).or_else(|e| Err(AssetPathsError::IO(e.to_string())))?;
         let paths: Vec<&str> = paths_file.split("\n").collect();
-        let line_count = paths.len();
-        if thread_count > line_count {
-            thread_count = line_count;
+        let len = paths.len();
+        let mut path_hashes: HashMap<u64, DatPath> = HashMap::with_capacity(len);
+        // let bar = ProgressBar::new(len as u64);
+        for path in paths {
+            if path.len() > 3 {
+                let parsed_path = DatPath::new(&path)?;
+                path_hashes.insert(parsed_path.index1_hash, parsed_path);
+            }
+            // bar.inc(1);
         }
-
-        let path_chunks: Vec<&[&str]> = paths.chunks(line_count / (thread_count - 1)).collect();
-
-        let path_hashes_arc_mutex = Mutex::new(path_hashes);
-        let path_hashes_arc = Arc::new(path_hashes_arc_mutex);
-        for (thread_index, chunk) in path_chunks.iter().enumerate() {
-            let paths_block: Vec<String> = chunk.to_vec().iter().map(|p| (*p).to_owned()).collect();
-            let line_count = paths_block.len();
-            let path_hashes_clone = Arc::clone(&path_hashes_arc);
-
-            let handle = std::thread::spawn(move || -> Result<(), AssetPathsThreadError> {
-                let max_index: f32 = line_count as f32;
-                let check_every: f32 = (max_index / 100.0).floor();
-                let mut path_hashes: HashMap<u64, DatPath> = HashMap::new();
-
-                for (index, path) in paths_block.iter().enumerate() {
-                    let parsed_path = DatPath::new(&path);
-                    if let Ok(parsed_path) = parsed_path {
-                        path_hashes.insert(parsed_path.index1_hash, parsed_path);
-
-                        let index = index as f32;
-                        if index % check_every == 0.0 {
-                            let done = (index / max_index) * 100.0;
-                            println!("Thread {} Reading path: {}%.\n", thread_index, done);
-                        }
-                    }
-                }
-                path_hashes_clone
-                    .lock()
-                    .or_else(|e| Err(AssetPathsThreadError::ThreadLock(e.to_string())))?
-                    .extend(path_hashes);
-                Ok(())
-            });
-            thread_handles.push(handle);
-        }
-
-        for thread_handle in thread_handles {
-            thread_handle.join().unwrap()?;
-        }
-
-        let gg = Arc::try_unwrap(path_hashes_arc)
-            .unwrap()
-            .into_inner()
-            .unwrap();
-
-        Ok(gg)
+        Ok(path_hashes)
+        // let mut thread_handles = vec![];
+        // let mut thread_count = std::thread::available_parallelism()
+        //     .or_else(|e| Err(AssetPathsError::ThreadCount(e.to_string())))?
+        //     .get();
+        // if thread_count < 2 {
+        //     thread_count = 2;
+        // }
+        //
+        // let paths_file =
+        //     fs::read_to_string(paths_file).or_else(|e| Err(AssetPathsError::IO(e.to_string())))?;
+        // let paths: Vec<&str> = paths_file.split("\n").collect();
+        // let line_count = paths.len();
+        // if thread_count > line_count {
+        //     thread_count = line_count;
+        // }
+        //
+        // let path_chunks: Vec<&[&str]> = paths.chunks(line_count / (thread_count - 1)).collect();
+        //
+        // let path_hashes_arc_mutex = Mutex::new(path_hashes);
+        // let path_hashes_arc = Arc::new(path_hashes_arc_mutex);
+        // for (thread_index, chunk) in path_chunks.iter().enumerate() {
+        //     let paths_block: Vec<String> = chunk.to_vec().iter().map(|p| (*p).to_owned()).collect();
+        //     let line_count = paths_block.len();
+        //     let path_hashes_clone = Arc::clone(&path_hashes_arc);
+        //
+        //     let handle = std::thread::spawn(move || -> Result<(), AssetPathsThreadError> {
+        //         let max_index: f32 = line_count as f32;
+        //         let check_every: f32 = (max_index / 100.0).floor();
+        //         let mut path_hashes: HashMap<u64, DatPath> = HashMap::new();
+        //
+        //         for (index, path) in paths_block.iter().enumerate() {
+        //             let parsed_path = DatPath::new(&path);
+        //             if let Ok(parsed_path) = parsed_path {
+        //                 path_hashes.insert(parsed_path.index1_hash, parsed_path);
+        //
+        //                 let index = index as f32;
+        //                 if index % check_every == 0.0 {
+        //                     let done = (index / max_index) * 100.0;
+        //                     println!("Thread {} Reading path: {}%.\n", thread_index, done);
+        //                 }
+        //             }
+        //         }
+        //         path_hashes_clone
+        //             .lock()
+        //             .or_else(|e| Err(AssetPathsThreadError::ThreadLock(e.to_string())))?
+        //             .extend(path_hashes);
+        //         Ok(())
+        //     });
+        //     thread_handles.push(handle);
+        // }
+        //
+        // for thread_handle in thread_handles {
+        //     thread_handle.join().unwrap()?;
+        // }
+        //
+        // let gg = Arc::try_unwrap(path_hashes_arc)
+        //     .unwrap()
+        //     .into_inner()
+        //     .unwrap();
+        //
+        // Ok(gg)
     }
 
     pub fn get_all_hash_dat_index1item(&self) -> HashMap<u64, (String, Index1Data1Item)> {
@@ -599,14 +611,17 @@ pub enum AssetFindError {
 
 #[derive(Error, Debug)]
 pub enum AssetPathsError {
-    #[error("Failed to get thread count '{0}'.")]
-    ThreadCount(String),
-
-    #[error("Failed to lock hashmap '{0}'.")]
-    Thread(#[from] AssetPathsThreadError),
-
+    // #[error("Failed to get thread count '{0}'.")]
+    // ThreadCount(String),
+    //
+    // #[error("Failed to lock hashmap '{0}'.")]
+    // Thread(#[from] AssetPathsThreadError),
+    //
     #[error("Not found: '{0}'.")]
     IO(String),
+
+    #[error("Failed to parse path: '{0}'.")]
+    DatPathError(#[from] PathError),
 }
 
 #[derive(Error, Debug)]
