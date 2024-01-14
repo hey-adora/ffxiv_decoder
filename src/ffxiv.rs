@@ -5,7 +5,7 @@ use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
-use crate::ffxiv::asset::{Asset, CSVExportError};
+use crate::ffxiv::asset::{Asset, AssetNewError, CSVExportError};
 use crate::ffxiv::asset::dat::{DatHeaderType, DatHeaderTypeError, DecompressError, StandardFile, TextureFile};
 use crate::ffxiv::asset::exd::EXD;
 use crate::ffxiv::asset::exh::{EXH, EXHColumnKind, EXHLang};
@@ -31,27 +31,27 @@ impl FFXIV {
         }
     }
 
-    pub fn get_asset_by_dat_path(&self, dat_path: &DatPath) -> Result<FileType, AssetFindError> {
+    pub fn get_asset(&self, dat_path: &DatPath) -> Result<FileType, AssetFindError> {
         let (dat, index) = self.find_asset_by_dat_path(dat_path).ok_or(AssetFindError::NotFound(format!("'{}'", dat_path.path_str)))?;
         self.read_asset(dat, index)
     }
 
-    pub fn get_asset(&self, dat_path: &str) -> Result<FileType, AssetFindError> {
-        let (dat, index) = self.find_asset(dat_path)?;
-        self.read_asset(dat, index)
-    }
+    // pub fn get_asset(&self, dat_path: &str) -> Result<FileType, AssetFindError> {
+    //     let (dat, index) = self.find_asset(dat_path)?;
+    //     self.read_asset(dat, index)
+    // }
 
-    pub fn get_asset_standard(&self, path_str: &str) -> Result<StandardFile, AssetFindError> {
-        let path = DatPath::new(path_str)?;
-        let asset = self.get_asset_by_dat_path(&path)?;
-        match asset {
-            FileType::Standard(exh) => Ok(exh),
-            _ => Err(AssetFindError::NotFound(format!("Not standard file '{}'", path_str)))
-        }
-    }
+    // pub fn get_asset_standard(&self, path_str: &str) -> Result<StandardFile, AssetFindError> {
+    //     let path = DatPath::new(path_str)?;
+    //     let asset = self.get_asset_by_dat_path(&path)?;
+    //     match asset {
+    //         FileType::Standard(exh) => Ok(exh),
+    //         _ => Err(AssetFindError::NotFound(format!("Not standard file '{}'", path_str)))
+    //     }
+    // }
 
-    pub fn get_asset_standard_by_dat_path(&self, path: &DatPath) -> Result<StandardFile, AssetFindError> {
-        let asset = self.get_asset_by_dat_path(&path)?;
+    pub fn get_asset_standard(&self, path: &DatPath) -> Result<StandardFile, AssetFindError> {
+        let asset = self.get_asset(&path)?;
         match asset {
             FileType::Standard(exh) => Ok(exh),
             _ => Err(AssetFindError::NotFound(format!("Not standard file '{}'", path.path_str)))
@@ -94,21 +94,21 @@ impl FFXIV {
         None
     }
 
-    pub fn get_exh(&self, path: &str) -> Asset<EXH> {
+    pub fn get_exh(&self, path: DatPath) -> Result<Asset<EXH>, AssetNewError> {
         Asset::new_exh(self, path)
     }
 
-    pub fn get_paths(paths_file: &str) -> HashMap<u64, DatPath> {
+    pub fn get_paths(paths_file: &str) -> Result<HashMap<u64, DatPath>, AssetPathsError> {
         let path_hashes: HashMap<u64, DatPath> = HashMap::new();
 
         let mut thread_handles = vec![];
-        let mut thread_count = std::thread::available_parallelism().unwrap().get();
+        let mut thread_count = std::thread::available_parallelism().or_else(|e|Err(AssetPathsError::ThreadCount(e.to_string())))?.get();
         if thread_count < 2 {
             thread_count = 2;
         }
 
 
-        let paths_file = fs::read_to_string(paths_file).unwrap();
+        let paths_file = fs::read_to_string(paths_file).or_else(|e|Err(AssetPathsError::IO(e.to_string())))?;
         let paths: Vec<&str> = paths_file.split("\n").collect();
         let line_count = paths.len();
         if thread_count > line_count {
@@ -124,7 +124,7 @@ impl FFXIV {
             let line_count = paths_block.len();
             let path_hashes_clone = Arc::clone(&path_hashes_arc);
 
-            let handle = std::thread::spawn(move || {
+            let handle = std::thread::spawn(move || -> Result<(), AssetPathsThreadError> {
                 let max_index: f32 = line_count as f32;
                 let check_every: f32 = (max_index / 100.0).floor();
                 let mut path_hashes: HashMap<u64, DatPath> = HashMap::new();
@@ -141,22 +141,23 @@ impl FFXIV {
                         }
                     }
                 }
-                path_hashes_clone.lock().unwrap().extend(path_hashes);
+                path_hashes_clone.lock().or_else(|e| Err(AssetPathsThreadError::ThreadLock(e.to_string())))?.extend(path_hashes);
+                Ok(())
             });
             thread_handles.push(handle);
         }
 
         for thread_handle in thread_handles {
-            thread_handle.join().unwrap();
+            thread_handle.join().unwrap()?;
         }
 
 
         let gg = Arc::try_unwrap(path_hashes_arc).unwrap().into_inner().unwrap();
 
-        gg
+        Ok(gg)
     }
 
-    pub fn get_index1_assets_locations(&self) -> HashMap<u64, (String, Index1Data1Item)> {
+    pub fn get_all_hash_dat_index1item(&self) -> HashMap<u64, (String, Index1Data1Item)> {
         let mut map: HashMap<u64, (String, Index1Data1Item)> = HashMap::new();
 
         for group in &self.asset_files {
@@ -174,7 +175,7 @@ impl FFXIV {
 
     }
 
-    pub fn get_index1_dat_items(&self) -> HashMap<String, Vec<Index1Data1Item>> {
+    pub fn get_all_dat_index1item(&self) -> HashMap<String, Vec<Index1Data1Item>> {
         let mut map: HashMap<String, Vec<Index1Data1Item>> = HashMap::new();
 
 
@@ -199,10 +200,10 @@ impl FFXIV {
 
     }
 
-    pub fn export_all(&self, export_path: &str, path_names: &str) {
+    pub fn export_all(&self, export_path: &str, path_names: &str) -> Result<(), AssetExportError> {
 
-        let dats_hash = self.get_index1_dat_items();
-        let names = FFXIV::get_paths(path_names);
+        let dats_hash = self.get_all_dat_index1item();
+        let names = FFXIV::get_paths(path_names)?;
 
         let dat_chunks: Vec<(usize, (&String, &Vec<Index1Data1Item>))> = dats_hash.iter().enumerate().collect();
         std::thread::scope(|scope| {
@@ -240,55 +241,60 @@ impl FFXIV {
                 });
             }
         });
-    }
-
-
-
-    pub fn save_all_cvs(&self) -> Result<(), CSVExportError> {
-        let exl =  self.get_asset("exd/root.exl")?.decompress()?;
-        let exl = EXL::from_vec(exl);
-        for (name, ukwn) in exl.lines {
-            let name = name.to_lowercase();
-            let asset_path = &format!("exd/{}.exh", name);
-            let exh =  self.get_asset(asset_path)?;
-
-            if let Ok(exh) = exh {
-                let exh = EXH::from_vec(exh.decompress()?);
-
-                let exd_lang_prefix = match &exh.languages[0] {
-                    EXHLang::None => String::from(".exd"),
-                    _ => String::from("_en.exd")
-                };
-
-                for row in &exh.rows{
-                    let file_path_str = format!("./csvs/{}_{}_en.csv", name, &row.start_id);
-                    let file_path_buf = PathBuf::from(&file_path_str);
-                    let file_path_dir = file_path_buf.parent().unwrap();
-
-                    if !file_path_buf.exists() {
-                        let mut rows: String = exh.to_string();
-                        rows.push_str("\n\n");
-
-                        let exd_asset_path = &format!("exd/{}_{}{}", name, &row.start_id, exd_lang_prefix);
-                        let exd =  self.get_asset(exd_asset_path).ok_or(CSVExportError::EXDNotFound(asset_path.to_owned()))?;
-                        let exd = EXD::from_vec(exd.decompress()?, &exh);
-
-                        rows.push_str(&exd.to_string());
-
-                        create_dir_all(file_path_dir).unwrap();
-                        fs::write(file_path_buf, rows).unwrap();
-                        println!("Saved {}", file_path_str);
-                    } else {
-                        println!("Skipped: {}", asset_path)
-                    }
-                }
-            } else {
-                println!("Not found: {}", asset_path)
-            }
-        }
 
         Ok(())
     }
+
+
+
+
+
+    // pub fn save_all_cvs(&self) -> Result<(), CSVExportError> {
+    //     let
+    //     // let exl =  self.get_asset("exd/root.exl")?.decompress()?;
+    //     // let exl = EXL::from_vec(exl);
+    //     // for (name, ukwn) in exl.lines {
+    //     //     let name = name.to_lowercase();
+    //     //     let asset_path = &format!("exd/{}.exh", name);
+    //     //     let exh =  self.get_asset(asset_path)?;
+    //     //
+    //     //     if let Ok(exh) = exh {
+    //     //         let exh = EXH::from_vec(exh.decompress()?);
+    //     //
+    //     //         let exd_lang_prefix = match &exh.languages[0] {
+    //     //             EXHLang::None => String::from(".exd"),
+    //     //             _ => String::from("_en.exd")
+    //     //         };
+    //     //
+    //     //         for row in &exh.rows{
+    //     //             let file_path_str = format!("./csvs/{}_{}_en.csv", name, &row.start_id);
+    //     //             let file_path_buf = PathBuf::from(&file_path_str);
+    //     //             let file_path_dir = file_path_buf.parent().unwrap();
+    //     //
+    //     //             if !file_path_buf.exists() {
+    //     //                 let mut rows: String = exh.to_string();
+    //     //                 rows.push_str("\n\n");
+    //     //
+    //     //                 let exd_asset_path = &format!("exd/{}_{}{}", name, &row.start_id, exd_lang_prefix);
+    //     //                 let exd =  self.get_asset(exd_asset_path).ok_or(CSVExportError::EXDNotFound(asset_path.to_owned()))?;
+    //     //                 let exd = EXD::from_vec(exd.decompress()?, &exh);
+    //     //
+    //     //                 rows.push_str(&exd.to_string());
+    //     //
+    //     //                 create_dir_all(file_path_dir).unwrap();
+    //     //                 fs::write(file_path_buf, rows).unwrap();
+    //     //                 println!("Saved {}", file_path_str);
+    //     //             } else {
+    //     //                 println!("Skipped: {}", asset_path)
+    //     //             }
+    //     //         }
+    //     //     } else {
+    //     //         println!("Not found: {}", asset_path)
+    //     //     }
+    //     // }
+    //
+    //     Ok(())
+    // }
 
     fn find_possible_files_from_dot_path(&self, asset_path: &DatPath) -> Option<Vec<&FFXIVFileGroup>>{
         let mut possible_asset_files: Vec<&FFXIVFileGroup> = Vec::new();
@@ -460,4 +466,31 @@ pub enum AssetFindError {
 
     #[error("Invalid header type: {0}")]
     InvalidFileType(#[from] DatHeaderTypeError)
+}
+
+#[derive(Error, Debug)]
+pub enum AssetPathsError {
+    #[error("Failed to get thread count '{0}'.")]
+    ThreadCount(String),
+
+    #[error("Failed to lock hashmap '{0}'.")]
+    Thread(#[from] AssetPathsThreadError),
+
+    #[error("Not found: '{0}'.")]
+    IO(String),
+}
+
+#[derive(Error, Debug)]
+pub enum AssetPathsThreadError {
+    // #[error("Failed to parse dat path '{0}'.")]
+    // DatPath(#[from] PathError),
+
+    #[error("Failed to lock hashmap '{0}'.")]
+    ThreadLock(String),
+}
+
+#[derive(Error, Debug)]
+pub enum AssetExportError {
+    #[error("Failed to get paths: '{0}'.")]
+    Path(#[from] AssetPathsError),
 }

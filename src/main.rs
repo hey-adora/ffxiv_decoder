@@ -7,7 +7,7 @@ use game_data_resolver::ffxiv::path::DatPath;
 
 fn main() {
     let ffxiv = FFXIV::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
-
+    let paths = FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt");
     // let exh = ffxiv.get_asset("exd/custom/000/regseaarmguild_00056.exh").unwrap().decompress().unwrap();
     // let exd = ffxiv.get_asset("exd/custom/000/regseaarmguild_00056_0_en.exd").unwrap().decompress().unwrap();
     //
@@ -29,8 +29,8 @@ fn main() {
     // let page_1 = ffxiv.get_csv_page(&exh, &exh_path, exh.find_lang(EXHLang::English).unwrap(), exh.rows[0].start_id).unwrap();
     // fs::write("./text88.txt", page_1).unwrap();
 
-    let exh = ffxiv.get_exh("exd/custom/000/regseaarmguild_00056.exh");
-    let page_1 = exh.get_page(exh.data.find_lang(EXHLang::English).unwrap(), exh.data.rows[0].start_id).unwrap();
+    // let exh = ffxiv.get_exh("exd/custom/000/regseaarmguild_00056.exh");
+    // let page_1 = exh.get_page(exh.data.find_lang(EXHLang::English).unwrap(), exh.data.rows[0].start_id).unwrap();
 
     println!("test");
 }

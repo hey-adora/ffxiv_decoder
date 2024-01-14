@@ -106,7 +106,7 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn from_hex_str(chunk_hex_str: &str) -> Result<Chunk, MetadataError> {
-        let chunk_number: u32 = u32::from_str_radix(chunk_hex_str, 16).or(Err(format!("Failed to parse chunk '{}' to a number.", chunk_hex_str)))?;
+        let chunk_number: u32 = u32::from_str_radix(chunk_hex_str, 16).or(Err(MetadataError::Invalid(format!("Failed to parse chunk '{}' to a number.", chunk_hex_str))))?;
         if chunk_number > 255 {
             return Err(MetadataError::Invalid(format!("Chunk '{}' is out of range 0:255", chunk_number)));
         }

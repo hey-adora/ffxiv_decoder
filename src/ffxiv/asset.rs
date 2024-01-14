@@ -25,7 +25,7 @@ pub struct Asset<'a, T> {
 impl <'a> Asset<'a, EXH> {
     pub fn new_exh(ffxiv: &'a FFXIV, exh_path: DatPath) -> Result<Asset<'a, EXH>, AssetNewError> {
         //let path = DatPath::new(path).unwrap();
-        let asset = ffxiv.get_asset_by_dat_path(&exh_path)?;
+        let asset = ffxiv.get_asset(&exh_path)?;
         let data = match asset {
             FileType::Standard(exh) => exh,
             _ => panic!("wrong file type")
@@ -55,7 +55,7 @@ impl <'a> Asset<'a, EXH> {
     pub fn get_pages(&self, lang: &EXHLang) -> Result<Vec<String>, AssetEXHGetPageError> {
         let mut pages: Vec<String> = Vec::new();
 
-        for row in self.data.rows {
+        for row in &self.data.rows {
             let page = self.get_page(lang, row.start_id)?;
             pages.push(page)
         }
@@ -82,7 +82,7 @@ impl <'a> Asset<'a, EXH> {
 impl <'a> Asset<'a, EXL> {
     pub fn new_exl(ffxiv: &'a FFXIV, exl_path: DatPath) -> Result<Asset<'a, EXL>, AssetNewError> {
         //let path = DatPath::new("exd/root.exl")?;
-        let asset = ffxiv.get_asset_standard_by_dat_path(&exl_path)?.decompress()?;
+        let asset = ffxiv.get_asset_standard(&exl_path)?.decompress()?;
         let data = EXL::from_vec(asset);
 
         let asset = Asset {
@@ -96,7 +96,7 @@ impl <'a> Asset<'a, EXL> {
 
 impl <'a> Asset<'a, EXD> {
     pub fn new_exd(ffxiv: &'a FFXIV, exd_path: DatPath, exh: &EXH) -> Result<Asset<'a, EXD>, AssetNewError> {
-        let asset = ffxiv.get_asset_standard_by_dat_path(&exd_path)?.decompress()?;
+        let asset = ffxiv.get_asset_standard(&exd_path)?.decompress()?;
         let data = EXD::from_vec(asset, exh);
 
         let asset = Asset {
