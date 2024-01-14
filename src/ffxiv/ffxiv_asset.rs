@@ -138,7 +138,8 @@ impl FFXIVAssetParserDatHeaderType {
         match n {
             1 => Ok(FFXIVAssetParserDatHeaderType::Empty),
             2 => Ok(FFXIVAssetParserDatHeaderType::Standard),
-            3 => Ok(FFXIVAssetParserDatHeaderType::Texture),
+            3 => Ok(FFXIVAssetParserDatHeaderType::Model),
+            4 => Ok(FFXIVAssetParserDatHeaderType::Texture),
             _ => Err(format!("Data type '{}' not found.", n))
         }
     }

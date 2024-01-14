@@ -33,8 +33,8 @@ fn main() {
     let ffxiv_files = FFXIVAssetFiles::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
     let (dat_file_path, index) = ffxiv_files.find_asset("exd/root.exl").unwrap();
     let compressed_asset = FFXIVAssetParserDat::from_file_path(dat_file_path.path, index.data_file_offset);
-    let decompressed_data = compressed_asset.to_decompressed();
-    fs::write("./test9.exl", decompressed_data.concat()).unwrap();
+    let decompressed_data_blocks = compressed_asset.to_decompressed();
+    fs::write("./test9.exl", decompressed_data_blocks.concat()).unwrap();
 
 
     // env_logger::init();
