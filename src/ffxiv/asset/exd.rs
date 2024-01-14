@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::ffxiv::asset::exh::{EXH, EXHColumnKind};
 use crate::ffxiv::buffer::{Buffer, BufferReader};
 
@@ -29,6 +30,26 @@ pub enum EXDColumn {
     Int64(i64),
     UInt64(u64),
     UNK,
+}
+
+impl Display for EXD {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut rows: String = String::new();
+        for row in &self.rows {
+            let row: String = row.iter().map(|c| {
+                let value = c.to_string();
+                if value.len() > 0 {
+                    return value;
+                } else {
+                    return String::from("EMPTY");
+                }
+            }).collect::<Vec<String>>().join(",");
+            rows.push_str(&row);
+            rows.push('\n');
+        }
+        
+        write!(f, "{}", rows)
+    }
 }
 
 impl EXD {
@@ -76,7 +97,6 @@ impl EXD {
         let output = EXD::new(&mut buff, exh);
         output
     }
-
 }
 
 impl AssetExdFileRowMetadata {

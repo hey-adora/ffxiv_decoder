@@ -1,4 +1,39 @@
+use std::fmt::{Display, Formatter};
+use egui::epaint::ahash::HashMap;
 use crate::ffxiv::buffer::{Buffer, BufferReader};
+
+
+// pub fn sudo_check(auth: &Auth, requires_sudo: Option<u32>, user_id: &str) -> bool {
+//     if let Some(required_sudo_group) = requires_sudo {
+//         if let Some(sudoers) = auth.sudoers.get(&required_sudo_group) {
+//             sudoers.contains(&String::from(user_id))
+//         } else {
+//             false
+//         }
+//     } else {
+//         true
+//     }
+// }
+
+//static required_sudo_group: u32 = 0;
+
+// struct Auth {
+//     pub sudoers: HashMap<u32, String>
+// }
+//
+// impl Auth {
+//     // pub fn get() -> Option<String> {
+//     //     None
+//     // }
+// }
+//
+// pub fn sudo_check(auth: &Auth, requires_sudo: Option<u32>, user_id: &str) -> bool {
+//     requires_sudo.and_then(|required_sudo_group| auth.sudoers.get(&required_sudo_group).and_then(|sudoers| sudoers.find(&String::from(user_id)) ))
+//     match requires_sudo {
+//         Some(required_sudo_group) => auth.sudoers.get(&required_sudo_group).and_then(|sudoers| sudoers.find(&String::from(user_id)) ).is_some(),
+//         None => true
+//     }
+// }
 
 pub struct EXH {
     pub signature: String,
@@ -14,6 +49,12 @@ pub struct EXH {
     pub languages: Vec<EXHLang>,
 }
 
+impl Display for EXH {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.columns.iter().map(|c| c.kind.to_string()).collect::<Vec<String>>().join(","))
+    }
+}
+
 pub struct EXHColumn {
     pub kind: EXHColumnKind,
     pub offset: u16
@@ -24,6 +65,7 @@ pub struct AssetEXHFileRow {
     pub row_count: u32
 }
 
+#[derive(PartialEq, Eq)]
 pub enum EXHLang {
     None = 0,
     Japanese = 1,
@@ -60,6 +102,34 @@ pub enum EXHColumnKind {
 
 }
 
+impl Display for EXHColumnKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            EXHColumnKind::String => String::from("STRING"),
+            EXHColumnKind::Bool => String::from("BOOL"),
+            EXHColumnKind::Int8 => String::from("INT8"),
+            EXHColumnKind::UInt8 => String::from("UINT8"),
+            EXHColumnKind::Int16 => String::from("INT16"),
+            EXHColumnKind::UInt16 => String::from("UINT16"),
+            EXHColumnKind::Int32 => String::from("INT32"),
+            EXHColumnKind::UInt32 => String::from("UINT32"),
+            EXHColumnKind::UNK1 => String::from("UNKNOWN"),
+            EXHColumnKind::Float32 => String::from("FLOAT32"),
+            EXHColumnKind::Int64 => String::from("INT64"),
+            EXHColumnKind::UInt64 => String::from("UINT64"),
+            EXHColumnKind::UNK2 => String::from("UNKNOWN"),
+            EXHColumnKind::PackedBool0 => String::from("BOOL"),
+            EXHColumnKind::PackedBool1 => String::from("BOOL"),
+            EXHColumnKind::PackedBool2 => String::from("BOOL"),
+            EXHColumnKind::PackedBool3 => String::from("BOOL"),
+            EXHColumnKind::PackedBool4 => String::from("BOOL"),
+            EXHColumnKind::PackedBool5 => String::from("BOOL"),
+            EXHColumnKind::PackedBool6 => String::from("BOOL"),
+            EXHColumnKind::PackedBool7 => String::from("BOOL"),
+        })
+    }
+}
+
 
 impl EXHColumnKind {
     pub fn sizes(kind: &EXHColumnKind) -> u64 {
@@ -86,36 +156,6 @@ impl EXHColumnKind {
             EXHColumnKind::PackedBool6 => 1,
             EXHColumnKind::PackedBool7 => 1,
         }
-    }
-
-    pub fn names(kind: &EXHColumnKind) -> String {
-        match kind {
-            EXHColumnKind::String => String::from("STRING"),
-            EXHColumnKind::Bool => String::from("BOOL"),
-            EXHColumnKind::Int8 => String::from("INT8"),
-            EXHColumnKind::UInt8 => String::from("UINT8"),
-            EXHColumnKind::Int16 => String::from("INT16"),
-            EXHColumnKind::UInt16 => String::from("UINT16"),
-            EXHColumnKind::Int32 => String::from("INT32"),
-            EXHColumnKind::UInt32 => String::from("UINT32"),
-            EXHColumnKind::UNK1 => String::from("UNKNOWN"),
-            EXHColumnKind::Float32 => String::from("FLOAT32"),
-            EXHColumnKind::Int64 => String::from("INT64"),
-            EXHColumnKind::UInt64 => String::from("UINT64"),
-            EXHColumnKind::UNK2 => String::from("UNKNOWN"),
-            EXHColumnKind::PackedBool0 => String::from("BOOL"),
-            EXHColumnKind::PackedBool1 => String::from("BOOL"),
-            EXHColumnKind::PackedBool2 => String::from("BOOL"),
-            EXHColumnKind::PackedBool3 => String::from("BOOL"),
-            EXHColumnKind::PackedBool4 => String::from("BOOL"),
-            EXHColumnKind::PackedBool5 => String::from("BOOL"),
-            EXHColumnKind::PackedBool6 => String::from("BOOL"),
-            EXHColumnKind::PackedBool7 => String::from("BOOL"),
-        }
-    }
-
-    pub fn name(&self) -> String {
-        EXHColumnKind::names(&self)
     }
 }
 
@@ -167,6 +207,10 @@ impl EXH {
         let output = EXH::new(&mut buff);
         output
     }
+
+    pub fn find_lang(&self, lang: EXHLang) -> Option<&EXHLang> {
+        self.languages.iter().find(|l| **l == lang)
+    }
 }
 
 impl EXHLang {
@@ -183,6 +227,27 @@ impl EXHLang {
             7 => EXHLang::Korean,
             _ => panic!("Langauge not found")
         }
+    }
+}
+
+// impl PartialEq for EXHLang {
+//     fn eq(&self, other: &Self) -> bool {
+//         self as u32 == other as u32
+//     }
+// }
+
+impl Display for EXHLang {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            EXHLang::None => String::from(""),
+            EXHLang::Japanese => String::from("ja"),
+            EXHLang::English => String::from("en"),
+            EXHLang::German => String::from("de"),
+            EXHLang::French => String::from("fr"),
+            EXHLang::ChineseSimplified => String::from("zh"),
+            EXHLang::ChineseTraditional => String::from("zh"),
+            EXHLang::Korean => String::from("ko"),
+        })
     }
 }
 
