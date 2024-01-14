@@ -49,6 +49,7 @@ use crate::ffxiv::ffxiv_buffer::FFXIVBuffer;
 // }
 //
 
+
 pub struct FFXIVAssetFiles {
     pub asset_files: Vec<FFXIVAssetFileGroup>
 }
@@ -169,6 +170,126 @@ impl FFXIVAssetFiles {
         map
 
     }
+
+    pub fn get_index1_dat_items(&self) -> HashMap<String, Vec<FFXIVAssetParserIndex1Data1Item>> {
+        let mut map: HashMap<String, Vec<FFXIVAssetParserIndex1Data1Item>> = HashMap::new();
+
+
+        for group in &self.asset_files {
+            let index1 = FFXIVAssetParserIndex::from_index1_file(&group.index1_file.path);
+            for item in index1.data1 {
+                let find_this_dat =  format!("dat{}", item.data_file_id);
+                let dat_file = group.dat_files.iter().find(|d| d.path_extension == find_this_dat);
+                if let Some(dat_file) = dat_file {
+                    let dat_items = map.get_mut(&dat_file.path_str);
+                    if let Some(dat_items) = dat_items {
+                        dat_items.push(item.clone());
+                    } else {
+                        map.insert(dat_file.path_str.clone(), vec![item.clone()]);
+                    }
+                }
+
+            }
+        }
+
+        map
+
+    }
+
+    pub fn export_all_text(&self, export_path: &str, path_names: &str) {
+
+        let dats = self.get_index1_dat_items();
+        let names = self.get_assets_path_from_file(path_names);
+
+
+
+        for (dat, items) in dats {
+            let max_index: f32 = items.len() as f32;
+            let check_every: f32 = (max_index / 100.0).floor();
+
+            let mut buffer = FFXIVBuffer::from_file_path(&dat);
+            for (index, item) in items.iter().enumerate() {
+                let org_name = names.get(&item.hash);
+                let item_name: String;
+                if let Some(org_name) = org_name {
+                    if org_name.path_extension == "scd" || org_name.path_extension == "tex" || org_name.path_extension == "mdl" {
+                        continue;
+                    }
+                    item_name = org_name.path_name.clone();
+                } else {
+                    item_name = item.hash.to_string();
+                }
+                let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
+
+                if !new_item_path.exists() {
+                    let header_type = FFXIVAssetParserDatHeaderType::check_at(&mut buffer, item.data_file_offset).unwrap();
+                    if let FFXIVAssetParserDatHeaderType::Standard = header_type {
+                        let file = StandardFile::new(&mut buffer, item.data_file_offset);
+                        let data = file.decompress();
+                        fs::write(new_item_path, data).unwrap();
+                    }
+                }
+
+                let index = index as f32;
+                if index % check_every == 0.0 {
+                    let done = (index / max_index) * 100.0;
+                    println!("Exporting {}: {}%.\n", &dat, done);
+                }
+            }
+        }
+    }
+
+    // pub fn export_all_text(&self, paths_file: &str) {
+    //     let hash_names = self.get_assets_path_from_file(paths_file);
+    //     let hashes = self.get_index1_assets_locations();
+    //
+    //     let a = hash_names.len();
+    //     let b = hashes.len();
+    //
+    //
+    //     //let mut output: String = String::new();
+    //
+    //     //let mut error_log = File::open("error_log.txt").unwrap();
+    //
+    //     let max_index: f32 = hashes.len() as f32;
+    //     let check_every: f32 = (max_index / 100.0).floor();
+    //     for (index, (hash, (data_path, index1data1item))) in hashes.iter().enumerate() {
+    //         let path = hash_names.get(&hash);
+    //         if let Some(path) = path {
+    //
+    //             if path.file_extension == "scd" {
+    //                 let mut scd_file_path = SaveFilePath::from_index_path(path);
+    //
+    //                 if scd_file_path.exists {
+    //                     let wav_file_path = scd_file_path.as_new("wav");
+    //
+    //                     if !wav_file_path.exists {
+    //                         scd_file_path.decode_to_wav();
+    //                     }
+    //
+    //                     scd_file_path.remove();
+    //                 } else {
+    //                     let wav_file_path = scd_file_path.as_new("wav");
+    //
+    //                     if !wav_file_path.exists {
+    //                         scd_file_path.decompress_and_write_blocks(data_path, index1data1item.data_file_offset);
+    //                         scd_file_path.decode_to_wav();
+    //                         scd_file_path.remove();
+    //                     }
+    //                 }
+    //
+    //             }
+    //         }
+    //
+    //         let index = index as f32;
+    //         if index % check_every == 0.0 {
+    //             let done = (index / max_index) * 100.0;
+    //             println!("Writing path: {}%.\n", done);
+    //         }
+    //     }
+    // }
+
+
 
     fn find_possible_files_from_dot_path(&self, asset_path: &FFXIVAssetPathDat) -> Vec<&FFXIVAssetFileGroup>{
         let mut possible_asset_files: Vec<&FFXIVAssetFileGroup> = Vec::new();

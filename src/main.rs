@@ -31,7 +31,9 @@ fn main() {
     //
     // println!("test"); // chara/equipment/e0171/texture/v01_c0101e0171_glv_n.tex // exd/root.exl
     let ffxiv_files = FFXIVAssetFiles::new("/mnt/hdd2/.local/share/Steam/steamapps/common/FINAL FANTASY XIV Online");
-    let paths = ffxiv_files.get_assets_path_from_file("/home/night/Documents/GitHub/game_data_resolver/media2/all_paths.txt");
+    ffxiv_files.export_all_text("/home/night/Documents/GitHub/sqex_scd_file_parser/media/here", "/home/night/Documents/GitHub/game_data_resolver/media2/all_paths.txt" );
+    //let paths = ffxiv_files.get_assets_path_from_file("/home/night/Documents/GitHub/game_data_resolver/media2/all_paths.txt");
+    //let dat_items = ffxiv_files.get_index1_dat_items();
     // let tex = ffxiv_files.get_asset("chara/equipment/e0171/texture/v01_c0101e0171_glv_n.tex").unwrap().decompress().unwrap();
     // let exl = ffxiv_files.get_asset("exd/root.exl").unwrap().decompress().unwrap();
     // fs::write("./v01_c0101e0171_glv_n.tex", tex).unwrap();
