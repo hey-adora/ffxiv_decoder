@@ -1,39 +1,42 @@
+use crate::ffxiv::asset::dat::{
+    DatHeaderType, DatHeaderTypeError, DecompressError, StandardFile, TextureFile,
+};
+use crate::ffxiv::asset::exd::EXD;
+use crate::ffxiv::asset::exh::{EXHColumnKind, EXHLang, EXH};
+use crate::ffxiv::asset::exl::EXL;
+use crate::ffxiv::asset::index::{Index, Index1Data1Item};
+use crate::ffxiv::asset::{Asset, AssetEXHGetPageError, AssetNewError};
+use crate::ffxiv::buffer::Buffer;
+use crate::ffxiv::path::{DatPath, FilePath, PathError};
+use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use indicatif::{ProgressBar, ProgressStyle};
 use thiserror::Error;
-use crate::ffxiv::asset::{Asset, AssetEXHGetPageError, AssetNewError};
-use crate::ffxiv::asset::dat::{DatHeaderType, DatHeaderTypeError, DecompressError, StandardFile, TextureFile};
-use crate::ffxiv::asset::exd::EXD;
-use crate::ffxiv::asset::exh::{EXH, EXHColumnKind, EXHLang};
-use crate::ffxiv::asset::exl::EXL;
-use crate::ffxiv::asset::index::{Index, Index1Data1Item};
-use crate::ffxiv::buffer::Buffer;
-use crate::ffxiv::path::{DatPath, FilePath, PathError};
 
-pub mod path;
+pub mod asset;
 pub mod buffer;
 pub mod metadata;
-pub mod asset;
+pub mod path;
 
 pub struct FFXIV {
-    pub asset_files: Vec<FFXIVFileGroup>
+    pub asset_files: Vec<FFXIVFileGroup>,
 }
 
 impl FFXIV {
     pub fn new(game_path: &str) -> FFXIV {
         let asset_files: Vec<FFXIVFileGroup> = FFXIVFileGroup::new(&game_path);
-        FFXIV {
-            asset_files
-        }
+        FFXIV { asset_files }
     }
 
     pub fn get_asset(&self, dat_path: &DatPath) -> Result<FileType, AssetFindError> {
-        let (dat, index) = self.find_asset_by_dat_path(dat_path).ok_or(AssetFindError::NotFound(format!("'{}'", dat_path.path_str)))?;
+        let (dat, index) = self
+            .find_asset_by_dat_path(dat_path)
+            .ok_or(AssetFindError::NotFound(format!("'{}'", dat_path.path_str)))?;
         self.read_asset(dat, index)
     }
 
@@ -55,42 +58,65 @@ impl FFXIV {
         let asset = self.get_asset(&path)?;
         match asset {
             FileType::Standard(exh) => Ok(exh),
-            _ => Err(AssetFindError::NotFound(format!("Not standard file '{}'", path.path_str)))
+            _ => Err(AssetFindError::NotFound(format!(
+                "Not standard file '{}'",
+                path.path_str
+            ))),
         }
     }
 
-    pub fn read_asset(&self, dat: FilePath, index: Index1Data1Item) -> Result<FileType, AssetFindError> {
+    pub fn read_asset(
+        &self,
+        dat: FilePath,
+        index: Index1Data1Item,
+    ) -> Result<FileType, AssetFindError> {
         let mut buffer = Buffer::from_file_path(&dat.path);
         let header_type = DatHeaderType::check_at(&mut buffer, index.data_file_offset)?;
         match header_type {
-            DatHeaderType::Texture => Ok(FileType::Texture(TextureFile::new_at(&mut buffer, index.data_file_offset))),
-            DatHeaderType::Standard => Ok(FileType::Standard(StandardFile::new_at(&mut buffer, index.data_file_offset))),
+            DatHeaderType::Texture => Ok(FileType::Texture(TextureFile::new_at(
+                &mut buffer,
+                index.data_file_offset,
+            ))),
+            DatHeaderType::Standard => Ok(FileType::Standard(StandardFile::new_at(
+                &mut buffer,
+                index.data_file_offset,
+            ))),
             DatHeaderType::Model => Err(AssetFindError::NotSupported(format!("Model type"))),
-            DatHeaderType::Empty => Err(AssetFindError::Empty(format!("{}", dat.path_str)))
+            DatHeaderType::Empty => Err(AssetFindError::Empty(format!("{}", dat.path_str))),
         }
     }
 
-    pub fn find_asset(&self, dat_path: &str) -> Result<(FilePath, Index1Data1Item), AssetFindError> {
+    pub fn find_asset(
+        &self,
+        dat_path: &str,
+    ) -> Result<(FilePath, Index1Data1Item), AssetFindError> {
         let path_dat = DatPath::new(dat_path)?;
-        self.find_asset_by_dat_path(&path_dat).ok_or(AssetFindError::NotFound(format!("'{}'", dat_path)))
+        self.find_asset_by_dat_path(&path_dat)
+            .ok_or(AssetFindError::NotFound(format!("'{}'", dat_path)))
     }
 
-    pub fn find_asset_by_dat_path(&self, dat_path: &DatPath) -> Option<(FilePath, Index1Data1Item)> {
+    pub fn find_asset_by_dat_path(
+        &self,
+        dat_path: &DatPath,
+    ) -> Option<(FilePath, Index1Data1Item)> {
         let possible_asset_files = self.find_possible_files_from_dot_path(dat_path)?;
 
         for possible_asset_file in possible_asset_files {
             let index_asset = Index::from_index1_file(&possible_asset_file.index1_file.path);
 
             if let Some(item) = index_asset.find(dat_path.index1_hash) {
-                let find_this_dat: String =  format!("dat{}", item.data_file_id);
-                let dat_file = possible_asset_file.dat_files.iter().find(|d| d.path_extension == find_this_dat);
+                let find_this_dat: String = format!("dat{}", item.data_file_id);
+                let dat_file = possible_asset_file
+                    .dat_files
+                    .iter()
+                    .find(|d| d.path_extension == find_this_dat);
                 if let Some(dat_file) = dat_file {
                     return Some((dat_file.clone(), item.clone()));
                 } else {
                     return None;
                 }
             }
-        };
+        }
 
         None
     }
@@ -111,13 +137,15 @@ impl FFXIV {
         let path_hashes: HashMap<u64, DatPath> = HashMap::new();
 
         let mut thread_handles = vec![];
-        let mut thread_count = std::thread::available_parallelism().or_else(|e|Err(AssetPathsError::ThreadCount(e.to_string())))?.get();
+        let mut thread_count = std::thread::available_parallelism()
+            .or_else(|e| Err(AssetPathsError::ThreadCount(e.to_string())))?
+            .get();
         if thread_count < 2 {
             thread_count = 2;
         }
 
-
-        let paths_file = fs::read_to_string(paths_file).or_else(|e|Err(AssetPathsError::IO(e.to_string())))?;
+        let paths_file =
+            fs::read_to_string(paths_file).or_else(|e| Err(AssetPathsError::IO(e.to_string())))?;
         let paths: Vec<&str> = paths_file.split("\n").collect();
         let line_count = paths.len();
         if thread_count > line_count {
@@ -150,7 +178,10 @@ impl FFXIV {
                         }
                     }
                 }
-                path_hashes_clone.lock().or_else(|e| Err(AssetPathsThreadError::ThreadLock(e.to_string())))?.extend(path_hashes);
+                path_hashes_clone
+                    .lock()
+                    .or_else(|e| Err(AssetPathsThreadError::ThreadLock(e.to_string())))?
+                    .extend(path_hashes);
                 Ok(())
             });
             thread_handles.push(handle);
@@ -160,8 +191,10 @@ impl FFXIV {
             thread_handle.join().unwrap()?;
         }
 
-
-        let gg = Arc::try_unwrap(path_hashes_arc).unwrap().into_inner().unwrap();
+        let gg = Arc::try_unwrap(path_hashes_arc)
+            .unwrap()
+            .into_inner()
+            .unwrap();
 
         Ok(gg)
     }
@@ -172,27 +205,31 @@ impl FFXIV {
         for group in &self.asset_files {
             let index1 = Index::from_index1_file(&group.index1_file.path);
             for item in index1.data1 {
-                let find_this_dat =  format!("dat{}", item.data_file_id);
-                let dat_file = group.dat_files.iter().find(|d| d.path_extension == find_this_dat);
+                let find_this_dat = format!("dat{}", item.data_file_id);
+                let dat_file = group
+                    .dat_files
+                    .iter()
+                    .find(|d| d.path_extension == find_this_dat);
                 if let Some(dat_file_path) = dat_file {
-                    map.insert(item.hash,(dat_file_path.path_str.clone(), item));
+                    map.insert(item.hash, (dat_file_path.path_str.clone(), item));
                 }
             }
         }
 
         map
-
     }
 
     pub fn get_all_dat_index1item(&self) -> HashMap<String, Vec<Index1Data1Item>> {
         let mut map: HashMap<String, Vec<Index1Data1Item>> = HashMap::new();
 
-
         for group in &self.asset_files {
             let index1 = Index::from_index1_file(&group.index1_file.path);
             for item in index1.data1 {
-                let find_this_dat =  format!("dat{}", item.data_file_id);
-                let dat_file = group.dat_files.iter().find(|d| d.path_extension == find_this_dat);
+                let find_this_dat = format!("dat{}", item.data_file_id);
+                let dat_file = group
+                    .dat_files
+                    .iter()
+                    .find(|d| d.path_extension == find_this_dat);
                 if let Some(dat_file) = dat_file {
                     let dat_items = map.get_mut(&dat_file.path_str);
                     if let Some(dat_items) = dat_items {
@@ -201,55 +238,83 @@ impl FFXIV {
                         map.insert(dat_file.path_str.clone(), vec![item.clone()]);
                     }
                 }
-
             }
         }
 
         map
-
     }
 
     pub fn export_all(&self, export_path: &str, path_names: &str) -> Result<(), AssetExportError> {
-
         let dats_hash = self.get_all_dat_index1item();
         let names = FFXIV::get_paths(path_names)?;
 
-        let dat_chunks: Vec<(usize, (&String, &Vec<Index1Data1Item>))> = dats_hash.iter().enumerate().collect();
-        std::thread::scope(|scope| {
-            for (thread_index, (dat, items)) in dat_chunks.iter() {
-                scope.spawn(|| {
-                    let max_index: f32 = items.len() as f32;
-                    let check_every: f32 = (max_index / 100.0).floor();
+        let i_max: usize = dats_hash.iter().fold(0, |a, b| a + b.1.len());
+        let bar = ProgressBar::new(i_max as u64);
+        dats_hash.iter().for_each(|(dat, items)| {
+            let mut buffer = Buffer::from_file_path(dat);
+            for (index, item) in items.iter().enumerate() {
+                let org_name = names.get(&item.hash);
+                let item_name: String;
+                if let Some(org_name) = org_name {
+                    item_name = format!("{}_{}", item.hash.to_string(), org_name.path_name.clone());
+                } else {
+                    item_name = item.hash.to_string();
+                }
+                let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
 
-                    let mut buffer = Buffer::from_file_path(*dat);
-                    for (index, item) in items.iter().enumerate() {
-                        let org_name = names.get(&item.hash);
-                        let item_name: String;
-                        if let Some(org_name) = org_name {
-                            item_name = format!("{}_{}", item.hash.to_string(), org_name.path_name.clone());
-                        } else {
-                            item_name = item.hash.to_string();
-                        }
-                        let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
-
-                        if !new_item_path.exists() {
-                            let header_type = DatHeaderType::check_at(&mut buffer, item.data_file_offset).unwrap();
-                            if let DatHeaderType::Standard = header_type {
-                                let file = StandardFile::new_at(&mut buffer, item.data_file_offset);
-                                let data = file.decompress().unwrap();
-                                fs::write(new_item_path, data).unwrap();
-                            }
-                        }
-
-                        let index = index as f32;
-                        if index % check_every == 0.0 {
-                            let done = (index / max_index) * 100.0;
-                            println!("THREAD {}: Exporting {}: {}%.\n", *thread_index, *dat, done);
-                        }
+                if !new_item_path.exists() {
+                    let header_type =
+                        DatHeaderType::check_at(&mut buffer, item.data_file_offset).unwrap();
+                    if let DatHeaderType::Standard = header_type {
+                        let file = StandardFile::new_at(&mut buffer, item.data_file_offset);
+                        let data = file.decompress().unwrap();
+                        fs::write(new_item_path, data).unwrap();
                     }
-                });
+                }
+                bar.inc(1);
             }
         });
+
+        // let dat_chunks: Vec<(usize, (&String, &Vec<Index1Data1Item>))> =
+        //     dats_hash.iter().enumerate().collect();
+        // std::thread::scope(|scope| {
+        //     for (thread_index, (dat, items)) in dat_chunks.iter() {
+        //         scope.spawn(|| {
+        //             let max_index: f32 = items.len() as f32;
+        //             let check_every: f32 = (max_index / 100.0).floor();
+        //
+        //             let mut buffer = Buffer::from_file_path(*dat);
+        //             for (index, item) in items.iter().enumerate() {
+        //                 let org_name = names.get(&item.hash);
+        //                 let item_name: String;
+        //                 if let Some(org_name) = org_name {
+        //                     item_name =
+        //                         format!("{}_{}", item.hash.to_string(), org_name.path_name.clone());
+        //                 } else {
+        //                     item_name = item.hash.to_string();
+        //                 }
+        //                 let new_item_path = PathBuf::from(format!("{}/{}", export_path, item_name));
+        //
+        //                 if !new_item_path.exists() {
+        //                     let header_type =
+        //                         DatHeaderType::check_at(&mut buffer, item.data_file_offset)
+        //                             .unwrap();
+        //                     if let DatHeaderType::Standard = header_type {
+        //                         let file = StandardFile::new_at(&mut buffer, item.data_file_offset);
+        //                         let data = file.decompress().unwrap();
+        //                         fs::write(new_item_path, data).unwrap();
+        //                     }
+        //                 }
+        //
+        //                 let index = index as f32;
+        //                 if index % check_every == 0.0 {
+        //                     let done = (index / max_index) * 100.0;
+        //                     println!("THREAD {}: Exporting {}: {}%.\n", *thread_index, *dat, done);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // });
 
         Ok(())
     }
@@ -262,7 +327,11 @@ impl FFXIV {
         let i_max = exl.data.lines.len() as u64;
         let bar = ProgressBar::new(i_max);
         let style = ("Rough bar:", "█  ", "white");
-        bar.set_style(ProgressStyle::with_template(&format!("{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}", style.2)).unwrap().progress_chars(style.1));
+        bar.set_style(
+            ProgressStyle::with_template(&format!("{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}", style.2))
+                .unwrap()
+                .progress_chars(style.1),
+        );
         bar.set_prefix(style.0);
         for (i, (name, uwnk)) in exl.data.lines.iter().enumerate() {
             let exh_name = &format!("exd/{}.exh", name);
@@ -270,15 +339,26 @@ impl FFXIV {
             let exh_path = DatPath::new(exh_name)?;
             let exh = self.get_exh(exh_path);
             if let Ok(exh) = exh {
-                let exh_lang = exh.data.find_lang(EXHLang::English).unwrap_or(&EXHLang::None);
+                let exh_lang = exh
+                    .data
+                    .find_lang(EXHLang::English)
+                    .unwrap_or(&EXHLang::None);
                 let pages = exh.get_pages(exh_lang)?;
 
                 for (path, csv) in pages {
                     let export_dir = export_path_buf.join(path.path_dir);
                     let export_file = export_dir.join(format!("{}.csv", path.path_stem));
                     if !export_file.exists() {
-                        create_dir_all(&export_dir).or_else(|e|Err(CSVExportError::CreatingDir(format!("'{}' for '{}'", e.to_string(), path.path_str))))?;
-                        fs::write(export_file, csv).or_else(|e|Err(CSVExportError::WritingFile(format!("{}", e.to_string()))))?;
+                        create_dir_all(&export_dir).or_else(|e| {
+                            Err(CSVExportError::CreatingDir(format!(
+                                "'{}' for '{}'",
+                                e.to_string(),
+                                path.path_str
+                            )))
+                        })?;
+                        fs::write(export_file, csv).or_else(|e| {
+                            Err(CSVExportError::WritingFile(format!("{}", e.to_string())))
+                        })?;
                     }
                 }
             }
@@ -288,8 +368,6 @@ impl FFXIV {
 
         Ok(())
     }
-
-
 
     // pub fn save_all_cvs(&self) -> Result<(), CSVExportError> {
     //     let
@@ -338,23 +416,26 @@ impl FFXIV {
     //     Ok(())
     // }
 
-    fn find_possible_files_from_dot_path(&self, asset_path: &DatPath) -> Option<Vec<&FFXIVFileGroup>>{
+    fn find_possible_files_from_dot_path(
+        &self,
+        asset_path: &DatPath,
+    ) -> Option<Vec<&FFXIVFileGroup>> {
         let mut possible_asset_files: Vec<&FFXIVFileGroup> = Vec::new();
 
         for asset_file in &self.asset_files {
-            if asset_file.index1_file.data_category.id == asset_path.data_category.id &&
-                asset_file.index1_file.data_repository.id == asset_path.data_repo.id {
-                possible_asset_files.push(asset_file.clone());
+            if asset_file.index1_file.data_category.id == asset_path.data_category.id
+                && asset_file.index1_file.data_repository.id == asset_path.data_repo.id
+            {
+                possible_asset_files.push(asset_file);
             }
         }
 
-        if possible_asset_files.len() > 0{
+        if possible_asset_files.len() > 0 {
             Some(possible_asset_files)
         } else {
             None
         }
     }
-
 }
 
 //==================================================================================================
@@ -366,7 +447,6 @@ pub struct FFXIVFileGroup {
 }
 
 impl FFXIVFileGroup {
-
     pub fn new(game_path: &str) -> Vec<FFXIVFileGroup> {
         let mut file_paths: Vec<PathBuf> = Vec::new();
         FFXIVFileGroup::get_files(game_path, &mut file_paths);
@@ -388,29 +468,34 @@ impl FFXIVFileGroup {
             }
         }
 
-
         let grouped_files = FFXIVFileGroup::group_files(dat_files, index_files, index2_files);
 
         grouped_files
     }
 
-    pub fn group_files(dat_files: Vec<FilePath>, index_files: Vec<FilePath>, index2_files: Vec<FilePath>) -> Vec<FFXIVFileGroup> {
+    pub fn group_files(
+        dat_files: Vec<FilePath>,
+        index_files: Vec<FilePath>,
+        index2_files: Vec<FilePath>,
+    ) -> Vec<FFXIVFileGroup> {
         let mut file_groups: Vec<FFXIVFileGroup> = Vec::new();
 
         for index_file in index_files {
             let index2_file = index2_files.iter().find(|f| **f == index_file);
             if let Some(index2_file) = index2_file {
-                let dat_files: Vec<FilePath> = dat_files.iter().filter(|f| **f == index_file).map(|f| f.clone()).collect();
+                let dat_files: Vec<FilePath> = dat_files
+                    .iter()
+                    .filter(|f| **f == index_file)
+                    .map(|f| f.clone())
+                    .collect();
                 if dat_files.len() == 0 {
                     continue;
                 }
-
 
                 file_groups.push(FFXIVFileGroup {
                     index1_file: index_file,
                     index2_file: (*index2_file).clone(),
                     dat_files,
-
                 })
             }
         }
@@ -451,12 +536,16 @@ pub enum FileType {
 
 impl Display for FileType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            FileType::Empty => "Empty",
-            FileType::Standard(_) => "Standard",
-            FileType::Model => "Model",
-            FileType::Texture(_) => "Texture",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                FileType::Empty => "Empty",
+                FileType::Standard(_) => "Standard",
+                FileType::Model => "Model",
+                FileType::Texture(_) => "Texture",
+            }
+        )
     }
 }
 
@@ -474,14 +563,12 @@ impl FileType {
         match self {
             FileType::Texture(t) => Ok(t.decompress()?),
             FileType::Standard(s) => Ok(s.decompress()?),
-            _ => Err(FileTypeError::UnsupportedFileType(self.to_string()))
+            _ => Err(FileTypeError::UnsupportedFileType(self.to_string())),
         }
     }
 }
 
 //==================================================================================================
-
-
 
 #[derive(Error, Debug)]
 pub enum FileTypeError {
@@ -489,7 +576,7 @@ pub enum FileTypeError {
     UnsupportedFileType(String),
 
     #[error("Decompression error: {0}")]
-    DecompressError(#[from] DecompressError)
+    DecompressError(#[from] DecompressError),
 }
 
 #[derive(Error, Debug)]
@@ -507,7 +594,7 @@ pub enum AssetFindError {
     PathError(#[from] PathError),
 
     #[error("Invalid header type: {0}")]
-    InvalidFileType(#[from] DatHeaderTypeError)
+    InvalidFileType(#[from] DatHeaderTypeError),
 }
 
 #[derive(Error, Debug)]
@@ -526,7 +613,6 @@ pub enum AssetPathsError {
 pub enum AssetPathsThreadError {
     // #[error("Failed to parse dat path '{0}'.")]
     // DatPath(#[from] PathError),
-
     #[error("Failed to lock hashmap '{0}'.")]
     ThreadLock(String),
 }
