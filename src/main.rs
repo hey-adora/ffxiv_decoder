@@ -5,7 +5,7 @@ use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
-use game_data_resolver::ffxiv::{FFXIV, test};
+use game_data_resolver::ffxiv::{FFXIV, test, test2};
 
 fn main() {
     //let path = PathBuf::from("./test/test2/test.txt");
@@ -17,10 +17,10 @@ fn main() {
     //     file.write(&[i]).unwrap();
     // }
 
-    test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "music/ffxiv/BGM_PvP_Battle_02.scd");
+    //test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "music/ffxiv/BGM_PvP_Battle_02.scd");
 
     //test("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/", "sound/vfx/monster/se_vfx_monster_reming_revolvekick.scd");
-    //test2("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
+    test2("/home/night/.steam/steam/steamapps/common/FINAL FANTASY XIV Online/game/sqpack/");
 
     // let mut o = AtomicUsize::new(1);
     // let mut spinlock = Arc::new(o);

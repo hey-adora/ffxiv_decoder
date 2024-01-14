@@ -104,7 +104,7 @@ impl DatFileNormalAssetBlockData {
             header_version,
             block_type,
             uncompressed_block_size,
-            data
+            data,
         }
     }
     pub fn from_metadata(data_file: &mut BufferWithRandomAccess, dat_file_metadata: &DatFileNormalAssetMetadata, data_file_offset: u64) -> Vec<DatFileNormalAssetBlockData> {
@@ -361,10 +361,9 @@ fn decompress(blocks: Vec<DatFileNormalAssetBlockData>) -> Vec<Vec<u8>> {
                 let mut decompressor = Decompress::new_with_window_bits(false, 15);
                 decompressor.decompress_vec(&block.data, &mut decompressed_block_data, FlushDecompress::None).unwrap();
                 decompressed_block_data
-            },
+            }
             BlockType::Uncompressed(n) => block.data.clone()
         }
-
     }).collect()
     // let mut decompressed_blocks: Vec<DecompressedBlock> = Vec::new();
     //
@@ -465,24 +464,12 @@ pub fn test(game_path: &str, index_path: &str) {
             let data_item = possible_asset_file.dat_files.iter().find(|d| d.data_chunk.id == item.data_file_id).ok_or("Data file could not be found.").unwrap();
             let data_item_path = data_item.file_path.as_os_str().to_str().unwrap();
             let mut data_file = BufferWithRandomAccess::from_file(data_item_path);
+
             let asset_metadata = DatFileNormalAssetMetadata::new(&mut data_file, item.data_file_offset);
             let compressed_asset_data_blocks = DatFileNormalAssetBlockData::from_metadata(&mut data_file, &asset_metadata, item.data_file_offset);
             let decompressed_asset_data_blocks = decompress(compressed_asset_data_blocks);
+            write_to_file(decompressed_asset_data_blocks, &parsed_index_path);
 
-            let decompressed_file_path = format!("./media/here/{}_{}.scd", parsed_index_path.index1_hash, parsed_index_path.file_stem);
-            let decompressed_file_path_buf = PathBuf::from(decompressed_file_path);
-            if decompressed_file_path_buf.exists() {
-                fs::remove_file(&decompressed_file_path_buf).unwrap();
-            }
-
-            let dir = decompressed_file_path_buf.parent().unwrap();
-            create_dir_all(dir).unwrap();
-            let mut scd_file = File::create(decompressed_file_path_buf).unwrap();
-            for decompressed_block in decompressed_asset_data_blocks {
-                scd_file.write_all(&decompressed_block).unwrap();
-            }
-
-            println!("ttt");
             //let compressed_blocks = get_scd_file(&mut data_file, item.data_file_offset as usize);
 
             // let decompressed_blocks = decompress(compressed_blocks).unwrap();
@@ -535,57 +522,165 @@ pub fn test(game_path: &str, index_path: &str) {
     }
 }
 
-// pub fn test2(game_path: &str) {
-//     let hash_names = get_game_asset_hash_names();
-//     let hashes = get_game_asset_hashes(game_path);
-//
-//     let a = hash_names.len();
-//     let b = hashes.len();
-//
-//
-//     //let mut output: String = String::new();
-//
-//     //let mut error_log = File::open("error_log.txt").unwrap();
-//
-//     let max_index: f32 = hashes.len() as f32;
-//     let check_every: f32 = (max_index / 100.0).floor();
-//     for (index, (hash, (data_path, index1data1item))) in hashes.iter().enumerate() {
-//         let path = hash_names.get(&hash);
-//         if let Some(path) = path {
-//             if path.file_extension == "scd" {
-//                 let mut data_file = BufferWithRandomAccess::from_file(data_path);
-//                 let (data_header_uncompressed_size, compressed_file_buffer) = get_scd_file(&mut data_file, index1data1item.data_file_offset as usize);
-//                 let decompressed_buffer = decompress(compressed_file_buffer, data_header_uncompressed_size);
-//                 if let Ok(decompressed_buffer) = decompressed_buffer {
-//                     let decompressed_file_path = format!("./media/here/{}_{}.scd", path.index1_hash, path.file_stem);
-//                     let re_encoded_file_path = format!("./media/there/{}_{}.scd", path.index1_hash, path.file_stem);
-//                     fs::write(&decompressed_file_path, decompressed_buffer).unwrap();
-//                     //Command::new("vgmstream-cli").arg(decompressed_file_path).arg(format!("-o {}.wav", re_encoded_file_path)).spawn().unwrap();
-//                     Command::new("vgmstream-cli").arg(decompressed_file_path).spawn().unwrap();
-//                 } else {
-//                     let msg = format!("failed to decompress: {}", path.full_path);
-//                     println!("{}", msg);
-//                     //error_log.write(format!("failed to decompress: {}", path.full_path).as_bytes()).unwrap();
-//                 }
-//                 //let (metadata, decoded) = decode(decompressed_buffer);
-//
-//                 //re_encode_as_wav_and_save(metadata, decoded, &path.file_stem);
-//             }
-//
-//             //output.push_str(&format!("{} {}\n", hash, path.full_path));
-//         } else {
-//             //output.push_str(&format!("{}\n", hash));
-//         }
-//
-//         let index = index as f32;
-//         if index % check_every == 0.0 {
-//             let done = (index / max_index) * 100.0;
-//             println!("Writing path: {}%.\n", done);
-//         }
-//     }
-//
-//     //fs::write("./media/has2.txt", output).unwrap();
-// }
+pub struct SaveFilePath {
+    pub file_path_str: String,
+    pub file_path_buf: PathBuf,
+    pub exists: bool
+}
+
+impl SaveFilePath {
+    pub fn new(index_path: &IndexPath, file_extension: String) -> SaveFilePath {
+        //let file_stem = format!("{}_{}", index_path.index1_hash, index_path.file_stem);
+        let file_path_str = format!("./media/here/{}_{}.{}", index_path.index1_hash, index_path.file_stem, file_extension);
+        let file_path_buf = PathBuf::from(&file_path_str);
+        let exists = file_path_buf.exists();
+        SaveFilePath {
+            file_path_str,
+            file_path_buf,
+            exists
+        }
+    }
+
+    pub fn write_blocks(&self, blocks: Vec<Vec<u8>>) {
+        let dir = self.file_path_buf.parent().unwrap();
+        create_dir_all(dir).unwrap();
+        let mut scd_file = File::create(&self.file_path_buf).unwrap();
+        for decompressed_block in blocks {
+            scd_file.write_all(&decompressed_block).unwrap();
+        }
+    }
+
+    pub fn write_scd_blocks(&self, data_path: &String, offset: u64) {
+        let mut data_file = BufferWithRandomAccess::from_file(data_path);
+        let asset_metadata = DatFileNormalAssetMetadata::new(&mut data_file, offset);
+        let compressed_asset_data_blocks = DatFileNormalAssetBlockData::from_metadata(&mut data_file, &asset_metadata, offset);
+        let decompressed_asset_data_blocks = decompress(compressed_asset_data_blocks);
+        self.write_blocks(decompressed_asset_data_blocks);
+    }
+
+    pub fn as_wav(&self) -> SaveFilePath {
+        let mut decoded_file_path = self.file_path_buf.clone();
+        decoded_file_path.set_extension("wav");
+        let decoded_file_path_str = decoded_file_path.to_str().unwrap().to_owned();
+        SaveFilePath {
+            file_path_buf: decoded_file_path,
+            file_path_str: decoded_file_path_str,
+            exists: true
+        }
+    }
+
+    pub fn decode_to_wav(&self) {
+        Command::new("vgmstream-cli").arg(&self.file_path_str).spawn().unwrap();
+    }
+
+    pub fn remove(&mut self) {
+        fs::remove_file(&self.file_path_buf).unwrap();
+        self.exists = false;
+    }
+}
+
+pub fn write_to_file(blocks: Vec<Vec<u8>>, index_path: &IndexPath) {
+    let decompressed_file_path = format!("./media/here/{}_{}.scd", index_path.index1_hash, index_path.file_stem);
+    let decompressed_file_path_buf = PathBuf::from(&decompressed_file_path);
+    if decompressed_file_path_buf.exists() {
+        fs::remove_file(&decompressed_file_path_buf).unwrap();
+    }
+
+    let dir = decompressed_file_path_buf.parent().unwrap();
+    create_dir_all(dir).unwrap();
+    let mut scd_file = File::create(&decompressed_file_path_buf).unwrap();
+    for decompressed_block in blocks {
+        scd_file.write_all(&decompressed_block).unwrap();
+    }
+
+    Command::new("vgmstream-cli").arg(decompressed_file_path).spawn().unwrap();
+}
+
+pub fn write_to_file2(blocks: Vec<Vec<u8>>, save_file_path: &SaveFilePath) {
+    let dir = save_file_path.file_path_buf.parent().unwrap();
+    create_dir_all(dir).unwrap();
+    let mut scd_file = File::create(&save_file_path.file_path_buf).unwrap();
+    for decompressed_block in blocks {
+        scd_file.write_all(&decompressed_block).unwrap();
+    }
+
+    Command::new("vgmstream-cli").arg(&save_file_path.file_path_str).spawn().unwrap();
+}
+
+pub fn test2(game_path: &str) {
+    let hash_names = get_game_asset_hash_names();
+    let hashes = get_game_asset_hashes(game_path);
+
+    let a = hash_names.len();
+    let b = hashes.len();
+
+
+    //let mut output: String = String::new();
+
+    //let mut error_log = File::open("error_log.txt").unwrap();
+
+    let max_index: f32 = hashes.len() as f32;
+    let check_every: f32 = (max_index / 100.0).floor();
+    for (index, (hash, (data_path, index1data1item))) in hashes.iter().enumerate() {
+        let path = hash_names.get(&hash);
+        if let Some(path) = path {
+            if path.file_extension == "scd" {
+                let mut scd_file_path = SaveFilePath::new(path, String::from("scd"));
+
+                if scd_file_path.exists {
+                    let wav_file_path = scd_file_path.as_wav();
+
+                    if !wav_file_path.exists {
+                        scd_file_path.decode_to_wav();
+                    }
+
+                    scd_file_path.remove();
+                } else {
+                    let wav_file_path = scd_file_path.as_wav();
+
+                    if !wav_file_path.exists {
+                        scd_file_path.write_scd_blocks(data_path, index1data1item.data_file_offset);
+                        scd_file_path.decode_to_wav();
+                        scd_file_path.remove();
+                    }
+                }
+
+
+
+                // let mut data_file = BufferWithRandomAccess::from_file(data_path);
+                // let (data_header_uncompressed_size, compressed_file_buffer) = get_scd_file(&mut data_file, index1data1item.data_file_offset as usize);
+                // let decompressed_buffer = decompress(compressed_file_buffer, data_header_uncompressed_size);
+
+                // if let Ok(decompressed_buffer) = decompressed_buffer {
+                //     let decompressed_file_path = format!("./media/here/{}_{}.scd", path.index1_hash, path.file_stem);
+                //     let re_encoded_file_path = format!("./media/there/{}_{}.scd", path.index1_hash, path.file_stem);
+                //     fs::write(&decompressed_file_path, decompressed_buffer).unwrap();
+                //     //Command::new("vgmstream-cli").arg(decompressed_file_path).arg(format!("-o {}.wav", re_encoded_file_path)).spawn().unwrap();
+                //     Command::new("vgmstream-cli").arg(decompressed_file_path).spawn().unwrap();
+                // } else {
+                //     let msg = format!("failed to decompress: {}", path.full_path);
+                //     println!("{}", msg);
+                //     //error_log.write(format!("failed to decompress: {}", path.full_path).as_bytes()).unwrap();
+                // }
+                //let (metadata, decoded) = decode(decompressed_buffer);
+
+                //re_encode_as_wav_and_save(metadata, decoded, &path.file_stem);
+            }
+
+            //output.push_str(&format!("{} {}\n", hash, path.full_path));
+        } else {
+            //output.push_str(&format!("{}\n", hash));
+        }
+
+        let index = index as f32;
+        if index % check_every == 0.0 {
+            let done = (index / max_index) * 100.0;
+            println!("Writing path: {}%.\n", done);
+        }
+    }
+
+    //fs::write("./media/has2.txt", output).unwrap();
+}
 
 fn get_game_asset_hash_names() -> HashMap<u64, IndexPath> {
     let mut thread_handles = vec![];
