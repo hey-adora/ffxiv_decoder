@@ -14,8 +14,9 @@ use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::fs;
 use std::fs::create_dir_all;
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -432,119 +433,80 @@ impl FFXIV {
     //         });
     //     Ok(())
     // }
-    pub fn export_scd_details(&self, path_names: &str) -> Result<String, AssetExportError> {
-        let dats_hash = self.get_all_dat_index1item_vec();
-        let names = FFXIV::get_paths(path_names)?;
+    pub fn export_scd_details(
+        &self,
+        path_names: &str,
+        export_path: &str,
+    ) -> Result<(), AssetExportError> {
+        let dats_items = self.get_all_dat_index1item_hashmap();
+        let paths = FFXIV::get_paths(path_names)?;
 
-        let i_max: usize = dats_hash.iter().fold(0, |a, b| a + b.1.len());
-        let bar = MultiProgress::new();
+        let i_max: usize = dats_items.iter().fold(0, |a, b| a + b.1.len());
+        let bar = ProgressBar::new(i_max as u64);
+        //let lines: String = String::with_capacity(i_max * 20);
+        let export_path_buf = PathBuf::from(export_path);
+        if !export_path_buf.is_file() {
+            return Err(AssetExportError::ExportPath(format!(
+                "Export path must be a file: {}",
+                export_path
+            )));
+        }
+        let file = if export_path_buf.exists() {
+            File::open(export_path_buf)
+                .or_else(|e| Err(AssetExportError::ExportPath(e.to_string())))?
+        } else {
+            File::create(export_path_buf)
+                .or_else(|e| Err(AssetExportError::ExportPath(e.to_string())))?
+        };
+        let mut writer = BufWriter::new(file);
+        for (dat, items) in dats_items {
+            for item in items {
+                write!(writer, "channels: {}", "asset.entry_channels");
+            }
+        }
 
-        let data_hash_len = dats_hash.len();
-        // let mut chunks_size = FFXIV::chunk_size(data_hash_len)
-        //     .or_else(|e| Err((AssetExportError::ThreadCount(e.to_string()))))?;
-        // let chunks: Vec<&[(String, Vec<Index1Data1Item>)]> =
-        //     dats_hash.chunks(chunks_size).collect();
-        // chunks
+        Ok(())
+        //let bar = MultiProgress::new();
+        // let lines: Mutex<String> = Mutex::new(lines);
+        //
+        // dats_hash
         //     .par_iter()
-        //     .map(|chunk| -> Result<String, AssetExportError> {
-        //         let total_len: usize = chunk
-        //             .iter()
-        //             .map(|(dat, items)| items.len())
-        //             .fold(0usize, |i1, i2| i1 + i2);
-        //         let mut lines = String::with_capacity(total_len);
-        //         let bar = bar.add(ProgressBar::new(total_len as u64));
-        //         let style = (dat.clone(), "█  ", "white");
+        //     .try_for_each(|(dat, items)| -> Result<(), AssetExportError> {
+        //         let items_len = items.len();
+        //         //let mut lines = String::with_capacity(items_len * 500);
+        //         let bar = bar.add(ProgressBar::new(items_len as u64));
         //         bar.set_style(
         //             ProgressStyle::with_template(&format!(
-        //                 "{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}",
-        //                 style.2
+        //                 "{{prefix:.bold}}▕{{bar:.{}}}▏{{pos}}",
+        //                 "white"
         //             ))
         //             .unwrap()
-        //             .progress_chars(style.1),
+        //             .progress_chars("█  "),
         //         );
-        //         bar.set_prefix(style.0);
-        //         for (dat, items) in chunk {
-        //             let items_len = items.len();
-        //             let mut buffer = Buffer::from_file_path(dat);
-        //             for (i, item) in items.iter().enumerate() {
-        //                 bar.set_message(format!("{}/{}", i + 1, i_max));
-        //                 let org_name = names.get(&item.hash);
-        //                 if let Some(item_name) = org_name {
-        //                     if item_name.path_extension == "scd" {
-        //                         let standart_asset =
-        //                             StandardFile::new_at(&mut buffer, item.data_file_offset);
-        //                         let asset_vec = standart_asset.decompress()?;
-        //                         let asset = AssetSCDFile::from_vec(asset_vec);
-        //                         lines.push_str(&format!("channels: {}\n", asset.entry_channels));
-        //                     }
+        //         bar.set_prefix(dat.clone());
+        //         let mut buffer = Buffer::from_file_path(dat);
+        //         for (i, item) in items.iter().enumerate() {
+        //             let org_name = names.get(&item.hash);
+        //             if let Some(item_name) = org_name {
+        //                 if item_name.path_extension == "scd" {
+        //                     let standart_asset =
+        //                         StandardFile::new_at(&mut buffer, item.data_file_offset);
+        //                     let asset_vec = standart_asset.decompress()?;
+        //                     let asset = AssetSCDFile::from_vec(asset_vec);
+        //                     lines
+        //                         .lock()
+        //                         .unwrap()
+        //                         .borrow_mut()
+        //                         .push_str(&format!("channels: {}\n", asset.entry_channels));
         //                 }
-        //                 bar.inc(1);
         //             }
-        //
-        //             bar.set_message(format!("{}/{}", i_max, i_max));
+        //             bar.inc(1);
         //         }
-        //         Ok(lines)
+        //         bar.finish();
+        //         Ok(())
         //     });
-
-        let stuff: String = dats_hash
-            .par_iter()
-            .map(|(dat, items)| -> Result<String, AssetExportError> {
-                let items_len = items.len();
-                let mut lines = String::with_capacity(items_len * 500);
-                let bar = bar.add(ProgressBar::new(items_len as u64));
-                // let style = (dat.clone(), "█  ", "white");
-                // bar.set_style(
-                //     ProgressStyle::with_template(&format!(
-                //         "{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}",
-                //         style.2
-                //     ))
-                //     .unwrap()
-                //     .progress_chars(style.1),
-                // );
-                // bar.set_prefix(style.0);
-                bar.set_style(
-                    ProgressStyle::with_template(&format!(
-                        "{{prefix:.bold}}▕{{bar:.{}}}▏{{pos}}",
-                        "white"
-                    ))
-                    .unwrap()
-                    .progress_chars("█  "),
-                );
-                bar.set_prefix(dat.clone());
-                let mut buffer = Buffer::from_file_path(dat);
-                //return Err(AssetExportError::ThreadCount(String::from("fffff")));
-                for (i, item) in items.iter().enumerate() {
-                    //bar.set_message(format!("{}/{}", i + 1, i_max));
-                    let org_name = names.get(&item.hash);
-                    if let Some(item_name) = org_name {
-                        if item_name.path_extension == "scd" {
-                            let standart_asset =
-                                StandardFile::new_at(&mut buffer, item.data_file_offset);
-                            let asset_vec = standart_asset.decompress()?;
-                            let asset = AssetSCDFile::from_vec(asset_vec);
-                            lines.push_str(&format!("channels: {}\n", asset.entry_channels));
-                        }
-                    }
-                    bar.inc(1);
-                }
-                bar.finish();
-
-                //bar.set_message(format!("{}/{}", i_max, i_max));
-                Ok(lines)
-            })
-            .try_fold(
-                || String::with_capacity(i_max),
-                |mut a: String,
-                 b: Result<String, AssetExportError>|
-                 -> Result<String, AssetExportError> {
-                    let b: String = b?;
-                    a.push_str(&b);
-                    Ok(a)
-                },
-            )
-            .collect::<Result<String, AssetExportError>>()?;
-
-        Ok(stuff)
+        //
+        // Ok(lines.into_inner().unwrap())
     }
 
     pub fn export_all(&self, export_path: &str, path_names: &str) -> Result<(), AssetExportError> {
@@ -961,8 +923,11 @@ pub enum AssetPathsThreadError {
 
 #[derive(Error, Debug)]
 pub enum AssetExportError {
+    #[error("Export path is invalid: '{0}'.")]
+    ExportPath(String),
+
     #[error("Failed to get paths: '{0}'.")]
-    Path(#[from] AssetPathsError),
+    AssetPath(#[from] AssetPathsError),
 
     #[error("Failed to get thread count '{0}'.")]
     ThreadCount(String),

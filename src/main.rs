@@ -6,13 +6,19 @@ use game_data_resolver::ffxiv::FFXIV;
 use std::fs;
 
 fn main() {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(6)
+        .build_global()
+        .unwrap();
     let ffxiv = FFXIV::new("/home/night/Games/FINAL FANTASY XIV Online/FINAL FANTASY XIV Online");
+
     // let a = DatPath::new("bg/ex1/03_abr_a2/dun/a2d2/grass/008_001_017_l.ggd").unwrap();
     // println!("{}", a.index1_hash);
-    // let paths =
-    //     FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
-    //         .unwrap();
+    let paths =
+        FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
+            .unwrap();
 
+    println!("done");
     // for (hash, path) in paths {
     //     println!("'{}' - '{}'", hash, path.path_str);
     // }
@@ -20,14 +26,14 @@ fn main() {
     // let path = paths.get(&18370806862700317260u64).unwrap();
     // println!("{}", path.path_str);
 
-    let wow: String = ffxiv
-        .export_scd_details("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
-        .unwrap();
-    fs::write(
-        "/home/night/Documents/GitHub/sqex_scd_file_parser/media/jojojo.txt",
-        wow,
-    )
-    .unwrap();
+    // let wow: String = ffxiv
+    //     .export_scd_details("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt")
+    //     .unwrap();
+    // fs::write(
+    //     "/home/night/Documents/GitHub/sqex_scd_file_parser/media/jojojo.txt",
+    //     wow,
+    // )
+    // .unwrap();
     //println!("{}", wow);
 
     //let paths = FFXIV::get_paths("/home/night/Documents/GitHub/game_data_resolver/media/all_paths.txt");
