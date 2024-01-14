@@ -74,6 +74,20 @@ pub mod scd_parser {
     // }
 
     impl Parser {
+        const nibble_to_int: [i16; 16] = [0, 1, 2, 3, 4, 5, 6, 7, -8, -7, -6, -5, -4, -3, -2, -1];
+        const msadpcm_steps: [i16; 16] = [
+            230, 230, 230, 230, 307, 409, 512, 614, 768, 614, 512, 409, 307, 230, 230, 230,
+        ];
+        const msadpcm_coefs: [[i16; 2]; 7] = [
+            [256, 0],
+            [512, -256],
+            [0, 0],
+            [192, 64],
+            [240, 0],
+            [460, -208],
+            [392, -232],
+        ];
+
         fn msadpcm_bytes_to_samples(stream_size: i32, frame_size: i32, channels: i32) -> i32 {
             if frame_size <= 0 || channels <= 0 {
                 return 0;
@@ -114,6 +128,97 @@ pub mod scd_parser {
             }
         }
 
+        // fn render_vgmstream() -> i32 {
+
+        // }
+
+        fn decode_get_samples_per_frame(frame_size: i32, channels: i32) -> i32 {
+            return (frame_size - 0x07 * channels) * 2 / channels + 2;
+        }
+
+        fn decode_get_samples_to_do(
+            samples_this_block: i32,
+            samples_per_frame: i32,
+            samples_into_block: i32,
+        ) -> i32 {
+            let samples_left_this_block = samples_this_block - samples_into_block;
+            if samples_per_frame > 1
+                && (samples_into_block % samples_per_frame) + samples_left_this_block
+                    > samples_per_frame
+            {
+                //println!("HMMMMMMMMMMMMMMMMMMMMMMMMMM");
+                let samples_to_do = samples_per_frame - (samples_into_block % samples_per_frame);
+                return samples_to_do;
+            }
+            return samples_left_this_block;
+        }
+
+        fn vec_replace_u8_with_u8(replace: &mut Vec<u8>, with: &Vec<u8>, start: usize) {
+            for (index, item) in with.iter().enumerate() {
+                replace[start + index] = *item;
+            }
+        }
+
+        fn add_u2_to_u8_vec(add: &mut Vec<u8>, with: [u8; 2]) {
+            for item in with {
+                add.push(item)
+            }
+        }
+
+        fn clamp16(val: i16) -> i16 {
+            if (val > 32767) {
+                return 32767;
+            } else if val < -32768 {
+                return -32768;
+            }
+            return val;
+        }
+
+        fn msadpcm_adpcm_expand_nibble_shr(
+            adpcm_scale: &mut i16,
+            adpcm_history1_16: &mut i16,
+            adpcm_history2_16: &mut i16,
+            adpcm_coef: [i16; 16],
+            hex: u8,
+            shift: usize,
+        ) -> i16 {
+            let mut code: i16 = 0;
+            if shift == 1 {
+                code = *Parser::nibble_to_int
+                    .get((hex >> 4) as usize)
+                    .expect("failed to get_high_nibble_signed");
+            } else {
+                code = *Parser::nibble_to_int
+                    .get((hex & 0x0f) as usize)
+                    .expect("failed to get_low_nibble_signed");
+            }
+
+            let adpcm_coef1: i16 = *adpcm_coef.get(0).expect("Failed to get adpcm_coef[0]");
+            let adpcm_coef2: i16 = *adpcm_coef.get(1).expect("Failed to get adpcm_coef[1]");
+
+            let mut predicted: i16 =
+                *adpcm_history1_16 * adpcm_coef1 + *adpcm_history2_16 * adpcm_coef2;
+            predicted = predicted >> 8;
+            predicted = predicted + (code * *adpcm_scale);
+            predicted = Parser::clamp16(predicted);
+
+            *adpcm_history2_16 = *adpcm_history1_16;
+            *adpcm_history1_16 = predicted as i16;
+
+            let adpcm_scale_step: i16 = *Parser::msadpcm_steps
+                .get((code & 0x0f) as usize)
+                .expect("Failed to get msadpcm_steps for adpcm_scale");
+            *adpcm_scale = (adpcm_scale_step * *adpcm_scale) >> 8;
+
+            if (*adpcm_scale < 16) {
+                *adpcm_scale = 16;
+            }
+
+            return predicted;
+        }
+
+        //fn msadpcm_adpcm_expand_nibble_div() -> i16 {}
+
         pub fn parse(&mut self) {
             let signature = self.string(0x00, 0x08);
             let version = self.i16(0x08);
@@ -139,20 +244,199 @@ pub mod scd_parser {
             let frame_size = self.i16((entries_offset + 0x2c) as usize);
             let waveformatex = self.u16((entries_offset + 0x34) as usize);
 
+            let offset = extradata_size + (entries_offset as i32) + 0x20;
             let buffer_size_kb = 1;
             let buffer_size = 1024 * buffer_size_kb;
 
+            //let samples_to_do: i32 = 0;
+            //let length_samples: i32 = samples_num
             let samples_num =
-                Parser::msadpcm_bytes_to_samples(stream_size, frame_size as i32, channels);
+                Parser::msadpcm_bytes_to_samples(stream_size, frame_size as i32, channels); //69376
+            let mut samples_into_block: i32 = 0;
+            let mut current_sample: i32 = 0;
+            let max_buffer_samples: i32 = buffer_size / (channels * 2); //512
+            let play_forever: usize = 0;
 
-            let samples_to_do: i32 = 0;
-            let to_do: i32 = 0;
-            let decode_pos_samples: i32 = 0;
-            let max_buffer_samples = buffer_size / (channels * 2);
-            let length_samples: i32 = samples_num;
-            let play_forever: i32 = 0;
+            let mut buffer: Vec<u8> = Vec::new();
+            let mut decode_pos_samples: i32 = 0;
+            let mut to_do: i32 = 0;
 
-            println!("{}", max_buffer_samples);
+            println!("OFFSET: {}", offset);
+
+            let offset_u: usize = offset as usize;
+            // let samples_written_u: usize = samples_written as usize;
+            // let frame_size_u: usize = frame_size as usize;
+
+            // let frame_offset_start: usize = offset_u + samples_written_u + decode_pos_samples;
+            // let frame_offset_end: usize =
+            //     offset_u + frame_size_u + samples_written_u + decode_pos_samples;
+            // let frame_buffer_size: usize = frame_offset_end - frame_offset_start;
+
+            // let mut frame: Vec<u8> = vec![0; 70];
+            // frame.copy_from_slice(&self.buffer[offset_u..(offset_u + 70)]);
+
+            let mut frame_count: usize = 4;
+            let frame_offset_start = offset_u + 70 * (frame_count - 1);
+            let frame_offset_end = offset_u + 70 * frame_count;
+            let frame_buffer_size = frame_offset_end - frame_offset_start;
+            let mut frame2: Vec<u8> = vec![0; frame_buffer_size];
+            frame2.copy_from_slice(&self.buffer[frame_offset_start..frame_offset_end]);
+
+            let index: usize = (frame2[0] & 0x07) as usize;
+
+            let mut output_buffer: Vec<u8> = Vec::new();
+            let mut adpcm_coef: [i16; 16] = [0; 16];
+            adpcm_coef[0] = Parser::msadpcm_coefs[index][0];
+            adpcm_coef[1] = Parser::msadpcm_coefs[index][1];
+            let mut adpcm_scale: i16 = i16::from_ne_bytes([frame2[0x01], frame2[0x02]]);
+            let mut adpcm_history1_16: i16 = i16::from_ne_bytes([frame2[0x03], frame2[0x04]]);
+            let mut adpcm_history2_16: i16 = i16::from_ne_bytes([frame2[0x05], frame2[0x06]]);
+
+            //let ttt = adpcm_history2_16.to_ne_bytes();
+            //output_buffer[0] = adpcm_history2_16;
+            Parser::add_u2_to_u8_vec(&mut output_buffer, adpcm_history2_16.to_ne_bytes());
+            Parser::add_u2_to_u8_vec(&mut output_buffer, adpcm_history1_16.to_ne_bytes());
+
+            let offet_done: usize = 0x07;
+            let offffffset: usize = frame2.len();
+            for index in 0x07..frame2.len() {
+                for shift in 0..2 {
+                    let hex = frame2[index];
+
+                    let prdicted: i16 = Parser::msadpcm_adpcm_expand_nibble_shr(
+                        &mut adpcm_scale,
+                        &mut adpcm_history1_16,
+                        &mut adpcm_history2_16,
+                        adpcm_coef,
+                        hex,
+                        shift,
+                    );
+                    Parser::add_u2_to_u8_vec(&mut output_buffer, prdicted.to_ne_bytes());
+                    //println!("{}: {}: {}", index, hex, prdicted);
+                }
+                //let hex_offset: usize = index + 0x07 + (index - 2) / 2;
+
+                // let hex = frame2[hex_offset];
+                //  print!("{:02x} ", hex);
+            }
+
+            print!("\n\n");
+
+            for hex in frame2 {
+                print!("{:02x} ", hex);
+            }
+
+            print!("\n\n");
+
+            for hex in output_buffer {
+                print!("{:02x} ", hex);
+            }
+
+            println!(
+                "\nHERE, adpcm_1: {}, adpcm_2: {}, adpcm_scale: {}, adpcm_history1_16: {}, adpcm_history2_16: {}",
+                adpcm_coef[0], adpcm_coef[1], adpcm_scale, adpcm_history1_16, adpcm_history2_16
+            );
+            // loop {
+            //     if (decode_pos_samples + max_buffer_samples) > samples_num {
+            //         to_do = samples_num - decode_pos_samples;
+            //     } else {
+            //         to_do = max_buffer_samples;
+            //     }
+            //     if to_do <= 0 {
+            //         break;
+            //     }
+
+            //     let mut samples_written: i32 = 0;
+            //     let samples_per_frame =
+            //         Parser::decode_get_samples_per_frame(frame_size as i32, channels);
+
+            //     println!("TO_DO: {}, done: {}", to_do, decode_pos_samples);
+            //     while samples_written < to_do {
+            //         let mut samples_to_do: usize = Parser::decode_get_samples_to_do(
+            //             samples_this_block,
+            //             samples_per_frame,
+            //             samples_into_block,
+            //         ) as usize;
+            //         if samples_to_do > to_do - samples_written {
+            //             println!("INTERSTING!!!!!!!!!!!!!!!!!!!!: {samples_to_do} > {to_do} - {samples_written}");
+            //             samples_to_do = to_do - samples_written;
+            //         }
+            //         let offset_u: usize = offset as usize;
+            //         let samples_written_u: usize = samples_written as usize;
+            //         let frame_size_u: usize = frame_size as usize;
+
+            //         let frame_offset_start: usize =
+            //             offset_u + samples_written_u + decode_pos_samples;
+            //         let frame_offset_end: usize =
+            //             offset_u + frame_size_u + samples_written_u + decode_pos_samples;
+            //         let frame_buffer_size = frame_offset_end - frame_offset_start;
+            //         let mut frame: Vec<u8> = vec![0; frame_buffer_size];
+            //         frame.copy_from_slice(&self.buffer[frame_offset_start..frame_offset_end]);
+
+            //         println!(
+            //             "DONE: {} + {} = {}",
+            //             samples_written,
+            //             samples_to_do,
+            //             samples_written + samples_to_do
+            //         );
+
+            //         samples_written += samples_to_do;
+            //         current_sample += samples_to_do as i32;
+            //         samples_into_block += samples_to_do as i32;
+            //     }
+
+            //     decode_pos_samples += to_do;
+            // }
+
+            // loop {
+            //     if (decode_pos_samples + max_buffer_samples) > length_samples {
+            //         to_do = length_samples - decode_pos_samples;
+            //     } else {
+            //         to_do = max_buffer_samples;
+            //     }
+            //     if to_do <= 0 {
+            //         break;
+            //     }
+
+            //     let mut samples_written: usize = 0;
+            //     let samples_per_frame: usize =
+            //         Parser::decode_get_samples_per_frame(frame_size as i32, channels) as usize;
+            //     let samples_this_block: usize = length_samples;
+
+            //     println!("TO_DO: {}, done: {}", to_do, decode_pos_samples);
+            //     while samples_written < to_do {
+            //         let mut samples_to_do: usize = Parser::decode_get_samples_to_do(
+            //         /home/night/Documents/GitHub/sqex_scd_file_parserset as usize;
+            //         let samples_written_u: usize = samples_written as usize;
+            //         let frame_size_u: usize = frame_size as usize;
+
+            //         let frame_offset_start: usize =
+            //             offset_u + samples_written_u + decode_pos_samples;
+            //         let frame_offset_end: usize =
+            //             offset_u + frame_size_u + samples_written_u + decode_pos_samples;
+            //         let frame_buffer_size = frame_offset_end - frame_offset_start;
+            //         let mut frame: Vec<u8> = vec![0; frame_buffer_size];
+            //         frame.copy_from_slice(&self.buffer[frame_offset_start..frame_offset_end]);
+
+            //         println!(
+            //             "DONE: {} + {} = {}",
+            //             samples_written,
+            //             samples_to_do,
+            //             samples_written + samples_to_do
+            //         );
+
+            //         samples_written += samples_to_do;
+            //         current_sample += samples_to_do;
+            //         samples_into_block += samples_to_do;
+            //     }
+            //     // for index in 0..to_do {
+            //     //     println!("F2: {}", index);
+            //     // }
+
+            //     decode_pos_samples += to_do;
+            // }
+
+            println!("{}", frame_size);
 
             self.print_column_headers();
             for hex in &self.buffer {
