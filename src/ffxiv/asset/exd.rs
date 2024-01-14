@@ -70,14 +70,21 @@ impl EXD {
         let rows: Vec<Vec<EXDColumn>> = rows_metadata.iter().map(|row_metadata| {
             let mut columns: Vec<EXDColumn> = Vec::new();
             for column in &exh.columns {
+                let data: EXDColumn;
                 let column_offset_to_offset: u64 = row_metadata.offset as u64 + column.offset_to_offset as u64 + 6;
-                let column_offset = buffer.be_u32_at(column_offset_to_offset);
-                let mut data_row_column_offset = row_metadata.offset as u64 + exh.data_offset as u64 + 6 + column_offset as u64;
-                let column_size = EXHColumnKind::sizes(&column.kind);
-                if data_row_column_offset + column_size >= max_file_size {
-                    data_row_column_offset = max_file_size - column_size;
+                if column_offset_to_offset + 4 >= max_file_size {
+                    data = EXDColumn::new_zeroed(&column.kind);
+                } else {
+                    let column_offset = buffer.be_u32_at(column_offset_to_offset);
+                    let data_row_column_offset = row_metadata.offset as u64 + exh.data_offset as u64 + 6 + column_offset as u64;
+                    let column_size = EXHColumnKind::sizes(&column.kind);
+
+                    if data_row_column_offset + column_size >= max_file_size {
+                        data = EXDColumn::new_zeroed(&column.kind);
+                    } else {
+                        data = EXDColumn::new_at(buffer, &column.kind, data_row_column_offset);
+                    }
                 }
-                let data = EXDColumn::new_at(buffer, &column.kind, data_row_column_offset);
                 columns.push(data);
             }
             columns
@@ -173,6 +180,25 @@ impl EXDColumn {
                 let byte = buffer.u8_at(offset);
                 EXDColumn::Bool(byte & (1 << 7) == byte)
             },
+        }
+    }
+
+    pub fn new_zeroed(kind: &EXHColumnKind) -> EXDColumn {
+        match kind {
+            EXHColumnKind::String => EXDColumn::String(String::new()),
+            EXHColumnKind::Bool => EXDColumn::Bool(false),
+            EXHColumnKind::Int8 => EXDColumn::Int8(0),
+            EXHColumnKind::UInt8 => EXDColumn::UInt8(0),
+            EXHColumnKind::Int16 => EXDColumn::Int16(0),
+            EXHColumnKind::UInt16 => EXDColumn::UInt16(0),
+            EXHColumnKind::Int32 => EXDColumn::Int32(0),
+            EXHColumnKind::UInt32 => EXDColumn::UInt32(0),
+            EXHColumnKind::UNK1 => EXDColumn::UNK,
+            EXHColumnKind::Float32 => EXDColumn::Float32(0.0),
+            EXHColumnKind::Int64 => EXDColumn::Int64(0),
+            EXHColumnKind::UInt64 => EXDColumn::UInt64(0),
+            EXHColumnKind::UNK2 => EXDColumn::UNK,
+            _ => EXDColumn::Bool(false),
         }
     }
 

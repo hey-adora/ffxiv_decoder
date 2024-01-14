@@ -4,8 +4,9 @@ use std::fs;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use indicatif::{ProgressBar, ProgressStyle};
 use thiserror::Error;
-use crate::ffxiv::asset::{Asset, AssetNewError, CSVExportError};
+use crate::ffxiv::asset::{Asset, AssetEXHGetPageError, AssetNewError};
 use crate::ffxiv::asset::dat::{DatHeaderType, DatHeaderTypeError, DecompressError, StandardFile, TextureFile};
 use crate::ffxiv::asset::exd::EXD;
 use crate::ffxiv::asset::exh::{EXH, EXHColumnKind, EXHLang};
@@ -96,6 +97,14 @@ impl FFXIV {
 
     pub fn get_exh(&self, path: DatPath) -> Result<Asset<EXH>, AssetNewError> {
         Asset::new_exh(self, path)
+    }
+
+    pub fn get_exd(&self, path: DatPath, exh: &EXH) -> Result<Asset<EXD>, AssetNewError> {
+        Asset::new_exd(self, path, exh)
+    }
+
+    pub fn get_exl(&self, path: DatPath) -> Result<Asset<EXL>, AssetNewError> {
+        Asset::new_exl(self, path)
     }
 
     pub fn get_paths(paths_file: &str) -> Result<HashMap<u64, DatPath>, AssetPathsError> {
@@ -245,7 +254,40 @@ impl FFXIV {
         Ok(())
     }
 
+    pub fn export_all_csv(&self, export_path: &str) -> Result<(), CSVExportError> {
+        let export_path_buf = PathBuf::from(export_path);
+        let exl_path = DatPath::new("exd/root.exl")?;
+        let exl = self.get_exl(exl_path)?;
 
+        let i_max = exl.data.lines.len() as u64;
+        let bar = ProgressBar::new(i_max);
+        let style = ("Rough bar:", "█  ", "white");
+        bar.set_style(ProgressStyle::with_template(&format!("{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}", style.2)).unwrap().progress_chars(style.1));
+        bar.set_prefix(style.0);
+        for (i, (name, uwnk)) in exl.data.lines.iter().enumerate() {
+            let exh_name = &format!("exd/{}.exh", name);
+            bar.set_message(format!("{}/{} - {}", i + 1, i_max, exh_name.clone()));
+            let exh_path = DatPath::new(exh_name)?;
+            let exh = self.get_exh(exh_path);
+            if let Ok(exh) = exh {
+                let exh_lang = exh.data.find_lang(EXHLang::English).unwrap_or(&EXHLang::None);
+                let pages = exh.get_pages(exh_lang)?;
+
+                for (path, csv) in pages {
+                    let export_dir = export_path_buf.join(path.path_dir);
+                    let export_file = export_dir.join(format!("{}.csv", path.path_stem));
+                    if !export_file.exists() {
+                        create_dir_all(&export_dir).or_else(|e|Err(CSVExportError::CreatingDir(format!("'{}' for '{}'", e.to_string(), path.path_str))))?;
+                        fs::write(export_file, csv).or_else(|e|Err(CSVExportError::WritingFile(format!("{}", e.to_string()))))?;
+                    }
+                }
+            }
+            bar.inc(1);
+        }
+        bar.finish();
+
+        Ok(())
+    }
 
 
 
@@ -493,4 +535,22 @@ pub enum AssetPathsThreadError {
 pub enum AssetExportError {
     #[error("Failed to get paths: '{0}'.")]
     Path(#[from] AssetPathsError),
+}
+
+#[derive(Error, Debug)]
+pub enum CSVExportError {
+    #[error("Path parsing error: {0}")]
+    Path(#[from] PathError),
+
+    #[error("Creating asset error: {0}")]
+    CreatingAsset(#[from] AssetNewError),
+
+    #[error("Getting EXH page error: {0}")]
+    EXHGetPage(#[from] AssetEXHGetPageError),
+
+    #[error("Creating all directories error: {0}")]
+    CreatingDir(String),
+
+    #[error("Writing file error: {0}")]
+    WritingFile(String),
 }

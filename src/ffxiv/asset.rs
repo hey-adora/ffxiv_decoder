@@ -41,19 +41,19 @@ impl <'a> Asset<'a, EXH> {
         Ok(asset)
     }
 
-    pub fn get_page(&self, lang: &EXHLang, page: u32) -> Result<String, AssetEXHGetPageError> {
+    pub fn get_page(&self, lang: &EXHLang, page: u32) -> Result<(DatPath, String), AssetEXHGetPageError> {
         let exd_asset_path = Asset::make_exd_path(&self.path.path_dir, &self.path.path_stem, lang, page);
-        let exd = Asset::new_exd(self.game, exd_asset_path, &self.data)?;
+        let exd = Asset::new_exd(self.game, exd_asset_path.clone(), &self.data)?;
 
         let mut csv: String = self.data.to_string();
         csv.push_str("\n\n");
         csv.push_str(&exd.data.to_string());
 
-        Ok(csv)
+        Ok((exd_asset_path, csv))
     }
 
-    pub fn get_pages(&self, lang: &EXHLang) -> Result<Vec<String>, AssetEXHGetPageError> {
-        let mut pages: Vec<String> = Vec::new();
+    pub fn get_pages(&self, lang: &EXHLang) -> Result<Vec<(DatPath, String)>, AssetEXHGetPageError> {
+        let mut pages: Vec<(DatPath, String)> = Vec::new();
 
         for row in &self.data.rows {
             let page = self.get_page(lang, row.start_id)?;
@@ -74,7 +74,12 @@ impl <'a> Asset<'a, EXH> {
     // }
 
     pub fn make_exd_path(dir: &str, name: &str, lang: &EXHLang, page: u32) -> DatPath {
-        let exd_asset_path = format!("{}/{}_{}_{}.exd", dir , name, page, lang);
+        let exd_asset_path = if let EXHLang::None = lang {
+            format!("{}/{}_{}.exd", dir , name, page)
+        } else {
+            format!("{}/{}_{}_{}.exd", dir , name, page, lang)
+        };
+        
         DatPath::new(&exd_asset_path).unwrap()
     }
 }
@@ -129,8 +134,3 @@ pub enum AssetEXHGetPageError {
     AssetFindError(#[from] AssetFindError)
 }
 
-#[derive(Error, Debug)]
-pub enum CSVExportError {
-    #[error("{0}")]
-    RootError(#[from] AssetNewError),
-}
