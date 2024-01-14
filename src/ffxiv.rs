@@ -607,6 +607,35 @@ pub fn write_to_file2(blocks: Vec<Vec<u8>>, save_file_path: &SaveFilePath) {
     Command::new("vgmstream-cli").arg(&save_file_path.file_path_str).spawn().unwrap();
 }
 
+pub fn test_hash(game_path: &str) {
+    let hash_names = get_game_asset_hash_names();
+    let hashes = get_game_asset_hashes(game_path);
+
+
+    let mut output: String = String::new();
+    let max_index: f32 = hashes.len() as f32;
+    let check_every: f32 = (max_index / 100.0).floor();
+    for (index, (hash, (data_path, item))) in hashes.iter().enumerate() {
+        let mut output_hash_name = String::from("UNKNOWN");
+
+        let hash_name = hash_names.get(&hash);
+        if let Some(name) = hash_name {
+            output_hash_name = name.full_path.clone();
+        }
+
+        output.push_str(&format!("{} {} {} {}\n", hash, output_hash_name, data_path, item.data_file_offset));
+
+        let index = index as f32;
+        if index % check_every == 0.0 {
+            let done = (index / max_index) * 100.0;
+            println!("Writing path: {}%.\n", done);
+        }
+    }
+
+
+    fs::write("./media/has69.txt", output).unwrap();
+}
+
 pub fn test_exd(game_path: &str) {
     let hash_names = get_game_asset_hash_names();
     let hashes = get_game_asset_hashes(game_path);
@@ -722,15 +751,15 @@ pub fn test2(game_path: &str) {
 }
 
 fn get_game_asset_hash_names() -> HashMap<u64, IndexPath> {
+    let mut path_hashes: HashMap<u64, IndexPath> = HashMap::new();
+
     let mut thread_handles = vec![];
     let mut thread_count = std::thread::available_parallelism().unwrap().get();
+    if thread_count < 2 {
+        thread_count = 2;
+    }
 
-    let mut path_hashes: HashMap<u64, IndexPath> = HashMap::new();
-    //let path_hashes2: HashMap<u64, IndexPath> = HashMap::new();
-    let paths_file = File::open("./media/all_paths.txt").unwrap();
-    //let reader = BufReader::new(paths_file);
 
-    //let line_count = reader.lines().count();
     let paths_file = fs::read_to_string("./media/all_paths.txt").unwrap();
     let paths: Vec<&str> = paths_file.split("\n").collect();
     let line_count = paths.len();
@@ -738,24 +767,11 @@ fn get_game_asset_hash_names() -> HashMap<u64, IndexPath> {
         thread_count = line_count;
     }
 
-    let path_chunks: Vec<&[&str]> = paths.chunks(line_count / thread_count).collect();
-    // let line_count = paths.len();
-    // let parse_step_count = line_count / thread_count;
-    // let parse_last_step_count = parse_step_count + (line_count % thread_count);
-
+    let path_chunks: Vec<&[&str]> = paths.chunks(line_count / (thread_count - 1)).collect();
 
     let path_hashes_arc_mutex = Mutex::new(path_hashes);
     let path_hashes_arc = Arc::new(path_hashes_arc_mutex);
-    for thread_index in 0..thread_count {
-        let chunk = path_chunks[thread_index];
-
-        // let mut parse_step_count = parse_step_count;
-        // if index < thread_count {
-        //     parse_step_count = parse_last_step_count;
-        // }
-        // let block_start_index = index * parse_step_count;
-
-
+    for (thread_index, chunk) in path_chunks.iter().enumerate() {
         let paths_block: Vec<String> = chunk.to_vec().iter().map(|p| (*p).to_owned()).collect();
         let line_count = paths_block.len();
         let path_hashes_clone = Arc::clone(&path_hashes_arc);
@@ -777,36 +793,88 @@ fn get_game_asset_hash_names() -> HashMap<u64, IndexPath> {
                     }
                 }
             }
-            let mut map = path_hashes_clone.lock().unwrap().extend(path_hashes);
+            path_hashes_clone.lock().unwrap().extend(path_hashes);
         });
         thread_handles.push(handle);
     }
-
 
     for thread_handle in thread_handles {
         thread_handle.join().unwrap();
     }
 
-    //
-    // let max_index: f32 = 1837802.0;
-    // let check_every: f32 = (max_index / 100.0).floor();
-    //
-    // for (index, path) in reader.lines().enumerate() {
-    //     let path = path.unwrap();
-    //     let parsed_path = IndexPath::from_str(&path);
-    //     if let Ok(parsed_path) = parsed_path {
-    //         path_hashes.insert(parsed_path.index1_hash, parsed_path);
-    //
-    //         let index = index as f32;
-    //         if index % check_every == 0.0 {
-    //             let done = (index / max_index) * 100.0;
-    //             println!("Reading path: {}%.\n", done);
-    //         }
-    //     }
-    // }
+
     let mut gg = Arc::try_unwrap(path_hashes_arc).unwrap().into_inner().unwrap();
 
     gg
+}
+
+// struct GameAssetHash {
+//     pub path: Option<String>,
+//     pub index_file_path: String,
+//     pub index_u64_hash: u64,
+//     pub index_u32_hash: u32,
+//     pub data_file_path: String,
+//     pub data_file_offset: u64,
+// }
+//
+// impl GameAssetHash {
+//     pub fn new(game_path: &str) -> Vec<GameAssetHash> {
+//         let asset_files: Vec<FFXIVAssetFiles> = FFXIVAssetFiles::new(game_path).unwrap();
+//         let mut index1_hashes: HashMap<u64, (String, Index1Data1Item)> = HashMap::new();
+//         //let index2_hashes: HashMap<u64, String> = HashMap::new();
+//
+//         let max_index: f32 = asset_files.len() as f32;
+//         let check_every: f32 = (max_index / 100.0).floor();
+//         for (index, asset_file) in asset_files.iter().enumerate() {
+//             let file = fs::read(&asset_file.index_file.file_path).unwrap();
+//             let mut file_buffer = BufferWithLog::new(file);
+//             let parsed_index = Index::from_index1(&mut file_buffer);
+//             for data in parsed_index.data1 {
+//                 index1_hashes.insert(data.hash, (asset_file.dat_files.iter().find(|f| f.file_extension == format!("dat{}", data.data_file_id)).unwrap().file_path_str.clone(), data));
+//             }
+//
+//             // let file = fs::read(&asset_file.index2_file.file_path).unwrap();
+//             // let mut file_buffer = BufferWithLog::new(file);
+//             // let parsed_index2 = Index::from_index2(&mut file_buffer);
+//
+//             let index = index as f32;
+//             if index % check_every == 0.0 {
+//                 let done = (index / max_index) * 100.0;
+//                 println!("Parsing path: {}%.\n", done);
+//             }
+//         }
+//
+//         0
+//     }
+// }
+
+fn get_game_asset_hashes2(game_path: &str) -> HashMap<u64, (String, Index1Data1Item)> {
+    let asset_files: Vec<FFXIVAssetFiles> = FFXIVAssetFiles::new(game_path).unwrap();
+    let mut index1_hashes: HashMap<u64, (String, Index1Data1Item)> = HashMap::new();
+    //let index2_hashes: HashMap<u64, String> = HashMap::new();
+
+    let max_index: f32 = asset_files.len() as f32;
+    let check_every: f32 = (max_index / 100.0).floor();
+    for (index, asset_file) in asset_files.iter().enumerate() {
+        let file = fs::read(&asset_file.index_file.file_path).unwrap();
+        let mut file_buffer = BufferWithLog::new(file);
+        let parsed_index = Index::from_index1(&mut file_buffer);
+        for data in parsed_index.data1 {
+            index1_hashes.insert(data.hash, (asset_file.dat_files.iter().find(|f| f.file_extension == format!("dat{}", data.data_file_id)).unwrap().file_path_str.clone(), data));
+        }
+
+        // let file = fs::read(&asset_file.index2_file.file_path).unwrap();
+        // let mut file_buffer = BufferWithLog::new(file);
+        // let parsed_index2 = Index::from_index2(&mut file_buffer);
+
+        let index = index as f32;
+        if index % check_every == 0.0 {
+            let done = (index / max_index) * 100.0;
+            println!("Parsing path: {}%.\n", done);
+        }
+    }
+
+    index1_hashes
 }
 
 fn get_game_asset_hashes(game_path: &str) -> HashMap<u64, (String, Index1Data1Item)> {
