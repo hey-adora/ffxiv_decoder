@@ -139,13 +139,21 @@ impl FFXIV {
         let paths: Vec<&str> = paths_file.split("\n").collect();
         let len = paths.len();
         let mut path_hashes: HashMap<u64, DatPath> = HashMap::with_capacity(len);
-        // let bar = ProgressBar::new(len as u64);
-        for path in paths {
+        let bar = ProgressBar::new(len as u64);
+        let style = ("Parsing dat paths:", "█  ", "white");
+        bar.set_style(
+            ProgressStyle::with_template(&format!("{{prefix:.bold}}▕{{bar:.{}}}▏{{msg}}", style.2))
+                .unwrap()
+                .progress_chars(style.1),
+        );
+        bar.set_prefix(style.0);
+        for (i, path) in paths.iter().enumerate() {
+            bar.set_message(format!("{}/{} - {}", i + 1, len, path.to_owned()));
             if path.len() > 3 {
                 let parsed_path = DatPath::new(&path)?;
                 path_hashes.insert(parsed_path.index1_hash, parsed_path);
             }
-            // bar.inc(1);
+            bar.inc(1);
         }
         Ok(path_hashes)
         // let mut thread_handles = vec![];
