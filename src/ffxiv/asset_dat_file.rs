@@ -59,7 +59,7 @@ impl AssetDatFile {
             match block.block_type {
                 BlockType::Compressed(n) => {
                     let mut decompressed_block_data: Vec<u8> = Vec::with_capacity(block.uncompressed_block_size as usize);
-                    let mut decompressor = Decompress::new_with_window_bits(false, 15);
+                    let mut decompressor = Decompress::new(false);
                     decompressor.decompress_vec(&block.data, &mut decompressed_block_data, FlushDecompress::None).unwrap();
                     decompressed_block_data
                 }
