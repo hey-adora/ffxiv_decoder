@@ -250,7 +250,7 @@ impl FFXIVBuffer<FFXIVBufferFile> {
 
 #[cfg(test)]
 mod FFXIVBufferTests {
-    use crate::ffxiv::buffer::FFXIVBuffer;
+    use crate::ffxiv::ffxiv_buffer::FFXIVBuffer;
 
     #[test]
     fn reading_u8() {
