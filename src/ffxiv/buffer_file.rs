@@ -1,4 +1,4 @@
-use positioned_io::{RandomAccessFile, ReadAt};
+use positioned_io::{RandomAccessFile, ReadAt, ReadBytesAtExt};
 use std::mem;
 
 pub struct BufferFile {
@@ -26,6 +26,34 @@ macro_rules! read_at_impl {
     }
 }
 
+macro_rules! read_be_or_le_impl {
+    ($name: ident, $t: ty) => {
+        pub fn $name(&mut self, is_be: bool) -> $t {
+            let mut buffer: [u8; mem::size_of::<$t>()] = [0; mem::size_of::<$t>()];
+            self.read(&mut buffer);
+            if is_be {
+                <$t>::from_be_bytes(buffer)
+            } else {
+                <$t>::from_le_bytes(buffer)
+            }
+        }
+    }
+}
+
+macro_rules! read_be_or_le_at_impl {
+    ($name: ident, $t: ty) => {
+        pub fn $name(&mut self, at: u64, is_be: bool) -> $t {
+            let mut buffer: [u8; mem::size_of::<$t>()] = [0; mem::size_of::<$t>()];
+            self.read_at(&mut buffer, at);
+            if is_be {
+                <$t>::from_be_bytes(buffer)
+            } else {
+                <$t>::from_le_bytes(buffer)
+            }
+        }
+    }
+}
+
 impl BufferFile {
     pub fn from_file_handle(file_handle: RandomAccessFile) -> BufferFile {
         BufferFile
@@ -42,10 +70,6 @@ impl BufferFile {
             offset: 0,
         }
     }
-
-
-    read_impl!(u8, from_be_bytes, u8);
-    read_impl!(i8, from_be_bytes, u8);
 
     read_impl!(be_u16, from_be_bytes, u16);
     read_impl!(be_i16, from_be_bytes, i16);
@@ -73,6 +97,24 @@ impl BufferFile {
     read_at_impl!(be_i64_at, from_be_bytes, i64);
     read_at_impl!(be_u128_at, from_be_bytes, u128);
     read_at_impl!(be_i128_at, from_be_bytes, i128);
+
+    read_be_or_le_impl!(be_le_u16, u16);
+    read_be_or_le_impl!(be_le_i16, i16);
+    read_be_or_le_impl!(be_le_u32, u32);
+    read_be_or_le_impl!(be_le_i32, i32);
+    read_be_or_le_impl!(be_le_u64, u64);
+    read_be_or_le_impl!(be_le_i64, i64);
+    read_be_or_le_impl!(be_le_u128, u128);
+    read_be_or_le_impl!(be_le_i128, i128);
+
+    read_be_or_le_at_impl!(be_le_u16_at, u16);
+    read_be_or_le_at_impl!(be_le_i16_at, i16);
+    read_be_or_le_at_impl!(be_le_u32_at, u32);
+    read_be_or_le_at_impl!(be_le_i32_at, i32);
+    read_be_or_le_at_impl!(be_le_u64_at, u64);
+    read_be_or_le_at_impl!(be_le_i64_at, i64);
+    read_be_or_le_at_impl!(be_le_u128_at, u128);
+    read_be_or_le_at_impl!(be_le_i128_at, i128);
 
     pub fn string(&mut self, size: usize) -> String {
         let mut buffer: Vec<u8> = vec![0; size];
@@ -106,6 +148,26 @@ impl BufferFile {
     pub fn offset_add(&mut self, offset: u64) -> u64 {
         self.offset += offset;
         self.offset
+    }
+
+    pub fn u8(&mut self) -> u8 {
+        let byte = self.file_handle.read_u8_at(self.offset).unwrap();
+        self.offset += 1;
+        byte
+    }
+
+    pub fn u8_at(&mut self, at: u64) -> u8 {
+        self.file_handle.read_u8_at(at).unwrap()
+    }
+
+    pub fn i8(&mut self) -> i8 {
+        let byte = self.file_handle.read_i8_at(self.offset).unwrap();
+        self.offset += 1;
+        byte
+    }
+
+    pub fn i8_at(&mut self, at: u64) -> i8 {
+        self.file_handle.read_i8_at(at).unwrap()
     }
 
     pub fn read(&mut self, buffer: &mut [u8]) {
